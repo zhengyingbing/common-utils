@@ -1,10 +1,12 @@
-package file
+package utils
 
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 /**
@@ -19,6 +21,21 @@ func IsDir(path string) (bool, error) {
 		return false, err
 	}
 	return stat.IsDir(), nil
+}
+
+/**
+ * @author: zhengyb
+ * @desc: create a multi-level folders
+ * @date: 2025/3/20 14:38
+ */
+func Create(path string) error {
+	p := filepath.Dir(path)
+	if _, err := os.Stat(p); err != nil {
+		if err = os.MkdirAll(p, os.ModePerm); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 /**
@@ -38,6 +55,11 @@ func Copy(src, dst string) error {
 	return copyFile(src, dst, false)
 }
 
+/**
+ * @author: zhengyb
+ * @desc: copy and cover
+ * @date: 2025/3/20 14:39
+ */
 func CopyForced(src, dst string) error {
 	return copyFile(src, dst, true)
 }
@@ -95,6 +117,11 @@ func copyFile(src, dst string, isForced bool) error {
 	return nil
 }
 
+/**
+ * @author: zhengyb
+ * @desc: delete and copy
+ * @date: 2025/3/20 14:40
+ */
 func Move(src, dst string) error {
 	if Exist(dst) {
 		err := os.RemoveAll(dst)
@@ -112,6 +139,82 @@ func Move(src, dst string) error {
 	return err
 }
 
+func ReplaceFile(src, old, new string) error {
+	//获取文件信息
+	file, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !file.IsDir() {
+		content, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		newContent := strings.ReplaceAll(string(content), old, new)
+		if newContent != string(content) {
+			file, err := os.Stat(src)
+			err = os.WriteFile(src, []byte(newContent), file.Mode())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func ReplaceAllFiles(src, old, new string) error {
+	//获取文件信息
+	file, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if file.IsDir() {
+		err := filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			newContent := strings.ReplaceAll(string(content), old, new)
+			if newContent != string(content) {
+				err = os.WriteFile(path, []byte(newContent), info.Mode())
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+	} else {
+		content, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		newContent := strings.ReplaceAll(string(content), old, new)
+		if newContent != string(content) {
+			file, err := os.Stat(src)
+			err = os.WriteFile(src, []byte(newContent), file.Mode())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+/**
+ * @author: zhengyb
+ * @desc: remove a folder
+ * @date: 2025/3/20 14:41
+ */
 func Remove(src string) error {
 	if Exist(src) {
 		err := os.RemoveAll(src)
