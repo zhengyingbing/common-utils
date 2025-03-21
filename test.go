@@ -1,6 +1,9 @@
 package main
 
-import "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/file"
+import (
+	"log"
+	"path/filepath"
+)
 
 const (
 	macSplit     = "/"
@@ -8,14 +11,19 @@ const (
 )
 
 func main() {
-	//src := "C:\\Users\\zheng\\Desktop\\douyin\\src"
-	dst := "C:\\Users\\zheng\\Desktop\\douyin\\dst"
+	//err := utils.ReplaceAllFiles("C:\\Users\\zheng\\Desktop\\douyin", "1111", "2222")
+	str := "abc"
+	log.Println(filepath.Join(str, "ac", "dd", "macos"))
 
-	err := file.Remove(dst)
-	if err != nil {
-		println("执行错误：", err.Error())
-	} else {
-		println("执行成功")
-	}
+}
+
+type LoginCallback interface {
+	OnSuccess(uid, token string)
+	onFailed(err string)
+}
+
+type HandleLogin struct{}
+
+func (h HandleLogin) OnSuccess(uid, token string) {
 
 }
