@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
-	"path/filepath"
+	"fmt"
+	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging"
 )
 
 const (
@@ -11,10 +11,9 @@ const (
 )
 
 func main() {
-	//err := utils.ReplaceAllFiles("C:\\Users\\zheng\\Desktop\\douyin", "1111", "2222")
-	str := "abc"
-	log.Println(filepath.Join(str, "ac", "dd", "macos"))
-
+	data := []int{0, 1, 1, 2}
+	a := packaging.Duplicate(data)
+	fmt.Println(a)
 }
 
 type LoginCallback interface {

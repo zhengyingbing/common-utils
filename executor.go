@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
 	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/models"
 	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/utils"
 	"strconv"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	cfg["dexMethodCounters"] = "60000"
 	cfg["bundleId"] = "com.hoolai.qsmy.douyu"
 	cfg["appId"] = "dypllxgp03osw"
-
+	models.SetChannelDynamicConfig(channelId, cfg)
 	androidHome := filepath.Join(path, "resources", "android")
 	javaHome := filepath.Join(path, "resources", "java")
 
@@ -43,10 +43,11 @@ func main() {
 		BuildPath:   buildPath,
 		Channel:     channel,
 		ChannelId:   channelId,
+		HomePath:    homePath,
 		GamePath:    gamePath,
 		ExpandPath:  expandPath,
 	}
-	packaging.Excute(&preParams, &ProgressImpl{}, &LogImpl{})
+	packaging.Execute(&preParams, &ProgressImpl{}, &LogImpl{})
 }
 
 type ProgressImpl struct {

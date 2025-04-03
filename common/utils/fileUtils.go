@@ -60,10 +60,31 @@ func Copy(src, dst string) error {
  * @desc: copy and cover
  * @date: 2025/3/20 14:39
  */
-func CopyForced(src, dst string) error {
+func ForceCopy(src, dst string) error {
 	return copyFile(src, dst, true)
 }
 
+func MergeFile(src, dst string, isForced bool) error {
+	if !Exist(src) {
+		return nil
+	}
+	isDir, _ := IsDir(src)
+	if isDir {
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return fmt.Errorf("read file error: %v", err)
+		}
+		for _, item := range entries {
+			err1 := MergeFile(filepath.Join(src, item.Name()), filepath.Join(dst, item.Name()), isForced)
+			if err1 != nil {
+				return err1
+			}
+		}
+	} else {
+		return Move(src, dst, isForced)
+	}
+	return nil
+}
 func copyFile(src, dst string, isForced bool) error {
 	isDir, _ := IsDir(src)
 	if isDir {
@@ -78,12 +99,6 @@ func copyFile(src, dst string, isForced bool) error {
 			}
 		}
 	} else {
-		p := filepath.Dir(dst)
-		if _, err := os.Stat(p); err != nil {
-			if err = os.MkdirAll(p, os.ModePerm); err != nil {
-				return err
-			}
-		}
 
 		srcFile, err := os.Open(src)
 		if err != nil {
@@ -92,6 +107,8 @@ func copyFile(src, dst string, isForced bool) error {
 		defer srcFile.Close()
 
 		if isForced || !Exist(dst) {
+
+			Create(dst)
 
 			dstFile, err := os.Create(dst)
 			if err != nil {
@@ -112,8 +129,10 @@ func copyFile(src, dst string, isForced bool) error {
 			if err != nil {
 				return err
 			}
+
 		}
 	}
+
 	return nil
 }
 
@@ -122,20 +141,26 @@ func copyFile(src, dst string, isForced bool) error {
  * @desc: delete and copy
  * @date: 2025/3/20 14:40
  */
-func Move(src, dst string) error {
+func Move(src, dst string, isForced bool) error {
+
 	if Exist(dst) {
-		err := os.RemoveAll(dst)
-		if err != nil {
-			return err
+		if !isForced {
+			return nil
 		}
 	}
-	err := Copy(src, dst)
-	if err == nil {
-		err := os.RemoveAll(src)
-		if err != nil {
-			return err
-		}
-	}
+	err := Create(dst)
+	err = os.Rename(src, dst)
+	return err
+}
+
+/**
+ * @author: zhengyb
+ * @desc: delete and copy
+ * @date: 2025/3/20 14:40
+ */
+func ForceMove(src, dst string) error {
+	err := Create(dst)
+	err = os.Rename(src, dst)
 	return err
 }
 
