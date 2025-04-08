@@ -1,6 +1,9 @@
 package smali
 
-import "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
+import (
+	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
+	"strings"
+)
 
 type HexSmaliField struct {
 	Name     string            `json:"name`
@@ -35,4 +38,39 @@ func (smaliMgr *SmaliMgr) AllDexFields() []HexSmaliField {
 		})
 	}
 	return fields
+}
+
+func (smaliMgr *SmaliMgr) ConfigFieldVal(name string, valArr []int) {
+	for _, item := range smaliMgr.fields {
+		if item.Name == name {
+			for k, v := range item.Chileren {
+				item.Chileren[k] = valArr[v]
+			}
+		}
+	}
+}
+
+func (smaliMgr *SmaliMgr) AddField(name string) {
+	exist := false
+	for _, item := range smaliMgr.fields {
+		if item.Name == name {
+			exist = true
+			break
+		}
+	}
+	if !exist {
+		smaliMgr.fields = append(smaliMgr.fields, &SmaliField{
+			Name:     name,
+			Chileren: make(map[string]int),
+		})
+	}
+}
+
+func (smaliMgr *SmaliMgr) AddChildField(name string, val int) {
+	for i := len(smaliMgr.fields) - 1; i >= 0; i-- {
+		if strings.HasPrefix(name, smaliMgr.fields[i].Name+"_") {
+			smaliMgr.fields[i].Chileren[name] = val
+			break
+		}
+	}
 }

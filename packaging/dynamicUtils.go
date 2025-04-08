@@ -1,0 +1,123 @@
+package packaging
+
+import (
+	"bytes"
+	"fmt"
+	xml "github.com/xyjwsj/xml_parser"
+	"image/png"
+	"os"
+	"path/filepath"
+	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
+	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/models"
+	"strings"
+)
+
+/**
+ * 资源替换
+ */
+func replaceRes(params *models.PreParams, buildPath, gamePath string) {
+	copyAccessConfig(filepath.Join(buildPath, "access.config"), filepath.Join(gamePath, "assets", "access.config"))
+	replacePackageName(gamePath, params.ChannelId)
+	replaceIconAndAppName(buildPath, gamePath, params.ChannelId)
+}
+
+func replaceIconAndAppName(buildPath, gamePath, channelId string) {
+	manifestXml := xml.ParseXml(filepath.Join(gamePath, "AndroidManifest.xml"))
+	_, tag := FindTag(manifestXml.ChildTags, "application", "")
+	app_name := models.GetDynamicConfig(channelId)[models.AppName]
+	icon_name := models.GetDynamicConfig(channelId)[models.IconName]
+	iconFolder := ""
+	iconName := ""
+	appName := ""
+	for k, v := range tag.Attribute {
+		if k == "android:icon" {
+			//@mipmap/icon_app
+			if strings.Contains(v, "mipmap") {
+				iconFolder = "mipmap-xxhdpi"
+			} else {
+				iconFolder = "drawable-xxhdpi"
+			}
+			iconName = v
+			iconName = strings.Split(iconName, "/")[1] + ".png"
+			continue
+		}
+		if k == "android:label" {
+			//@string/app_name
+			appName = v
+			appName = strings.Split(appName, "/")[1]
+			continue
+		}
+	}
+	valuesPath := filepath.Join(gamePath, "res", "values", "strings.xml")
+	valuesXml := xml.ParseXml(valuesPath)
+
+	resourceTag := FindSingleTag(valuesXml.ChildTags, "string", "name", appName)
+	resourceTag.Value = fmt.Sprint(app_name)
+	xml.Serializer(valuesXml, xml.XmlHeaderType, valuesPath)
+
+	iconPath := filepath.Join(buildPath, fmt.Sprint(icon_name))
+	println("图片路径:", iconPath)
+	if !isPng(iconPath) {
+		panic("图标格式错误，非png格式！")
+	} else {
+		println("icon check ok !")
+	}
+	resEntries, _ := os.ReadDir(filepath.Join(gamePath, "res"))
+	for _, entry := range resEntries {
+		if strings.HasPrefix(entry.Name(), "mipmap") || strings.HasPrefix(entry.Name(), "drawable") && entry.IsDir() {
+			childs, _ := os.ReadDir(filepath.Join(gamePath, "res", entry.Name()))
+			for _, child := range childs {
+				if child.Name() == iconName {
+					utils2.Remove(filepath.Join(gamePath, "res", entry.Name(), iconName))
+				}
+			}
+		}
+	}
+	utils2.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName))
+}
+
+func isPng(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	header := make([]byte, 8)
+	if _, err = file.Read(header); err != nil {
+		return false
+	}
+	if !bytes.Equal(header, []byte{137, 80, 78, 71, 13, 10, 26, 10}) {
+		return false
+	}
+
+	//注意：重置文件指针到开头，以便解码
+	if _, err = file.Seek(0, 0); err != nil {
+		return false
+	}
+
+	//解码整个PNG文件
+	_, err = png.Decode(file)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func copyAccessConfig(src string, dst string) {
+	utils2.ForceCopy(src, dst)
+}
+
+/**
+ * 替换包名
+ */
+func replacePackageName(gamePath, channelId string) {
+	manifestPath := filepath.Join(gamePath, "AndroidManifest.xml")
+	manifestXml := xml.ParseXml(manifestPath)
+	gamePackage := manifestXml.Attribute["package"]
+	println("包名：", gamePackage)
+	pkgName := models.GetDynamicConfig(channelId)[models.BundleId]
+	utils2.ReplaceFile(manifestPath, gamePackage, fmt.Sprint(pkgName))
+	utils2.ReplaceFile(manifestPath, "hlApplicationId", fmt.Sprint(pkgName))
+
+}

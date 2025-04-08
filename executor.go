@@ -21,11 +21,12 @@ func main() {
 	path, _ := os.Getwd()
 	homePath := filepath.Join(path, "home")
 	cfg := make(map[string]any)
-	cfg["appName"] = channel + "Demo"
-	cfg["targetSdkVersion"] = "30"
+	cfg[models.AppName] = channel + "Demo"
+	cfg[models.IconName] = "ic_launcher.png"
+	cfg[models.TargetSdkVersion] = "30"
 	cfg["dexMethodCounters"] = "60000"
-	cfg["bundleId"] = "com.hoolai.qsmy.douyu"
-	cfg["appId"] = "dypllxgp03osw"
+	cfg[models.BundleId] = "com.hoolai.sf3.bytedance.gamecenter"
+	cfg["appId"] = "614371"
 	models.SetChannelDynamicConfig(channelId, cfg)
 	androidHome := filepath.Join(path, "resources", "android")
 	javaHome := filepath.Join(path, "resources", "java")
@@ -34,9 +35,9 @@ func main() {
 	gamePath := filepath.Join(homePath, "game_demo.apk")
 	expandPath := filepath.Join(homePath, "channel")
 
-	utils.Copy(filepath.Join(homePath, "sds.keystore"), filepath.Join(buildPath, "sds.keystore"))
-	utils.Copy(filepath.Join(homePath, "ic_launcher"), filepath.Join(buildPath, "ic_launcher"))
-	utils.Copy(filepath.Join(homePath, "sds.keystore"), filepath.Join(buildPath, "sds.keystore"))
+	utils.Copy(filepath.Join(homePath, "access.config"), filepath.Join(buildPath, "access.config"))
+	utils.Copy(filepath.Join(homePath, "ic_launcher.png"), filepath.Join(buildPath, "ic_launcher.png"))
+	utils.Copy(filepath.Join(homePath, "aygd.keystore"), filepath.Join(buildPath, "aygd.keystore"))
 	preParams := models.PreParams{
 		JavaHome:    javaHome,
 		AndroidHome: androidHome,

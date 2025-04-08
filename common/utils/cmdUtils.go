@@ -31,7 +31,7 @@ func CurrentOsType() OsType {
 	return WINDOWS
 }
 
-func Space() string {
+func Symbol() string {
 	if CurrentOsType() == MACOS {
 		return "/"
 	}

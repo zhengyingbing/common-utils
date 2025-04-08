@@ -2,7 +2,6 @@ package packaging
 
 import (
 	"fmt"
-	xml "github.com/xyjwsj/xml_parser"
 	"path/filepath"
 	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
 	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/models"
@@ -16,6 +15,7 @@ var (
 
 func Execute(params *models.PreParams, progress models.ProgressCallback, logger models.LogCallback) {
 	initData(params)
+	t0 := time.Now().Unix()
 	progress.Progress(channelId, 1)
 	decodeAsyncAndCopy(logger, progress)
 	gamePath := filepath.Join(buildPath, "gameDir")
@@ -23,17 +23,23 @@ func Execute(params *models.PreParams, progress models.ProgressCallback, logger 
 	MergeSmaliFiles(filepath.Join(buildPath, "gameDir"))
 	//修复attrs
 	GameRepairStyleable(gamePath)
+	progress.Progress(channelId, 20)
+	t1 := time.Now().Unix()
+	logger.Println("合并前准备工作完成，耗时", t1-t0, "秒")
 	//渠道合并，母包优先级高
-	MergeApkDir(filepath.Join(buildPath, channel+"Dir"), gamePath, "", logger, progress)
+	MergeApkDir(buildPath, channel, gamePath, "", logger, progress)
 	progress.Progress(channelId, 35)
 	//fastsdk合并，fastsdk优先级高
-	MergeApkDir(filepath.Join(buildPath, "fastsdkDir"), gamePath, "smali,assets,lib res,manifest", logger, progress)
+	MergeApkDir(buildPath, "fastsdk", gamePath, "smali,assets,lib res,manifest", logger, progress)
 	progress.Progress(channelId, 40)
 	//jni合并，lib和smali是jni优先级高
-	MergeApkDir(filepath.Join(buildPath, "coreDir"), gamePath, "smali,lib", logger, progress)
+	MergeApkDir(buildPath, "core", gamePath, "smali,lib", logger, progress)
 	progress.Progress(channelId, 45)
-
-	replaceRes(params, logger, progress)
+	t2 := time.Now().Unix()
+	logger.Println("包合并完成，耗时", t2-t1, "秒")
+	//删除未兼容全部架构的动态库
+	DeleteInvalidLibs(gamePath)
+	replaceRes(params, buildPath, gamePath)
 
 }
 
@@ -119,14 +125,6 @@ func decodeAsyncAndCopy(logger models.LogCallback, progress models.ProgressCallb
 	logger.Println("母包smali文件合并完成")
 	progress.Progress(channelId, 30)
 
-}
-
-func replaceRes(params *models.PreParams, logger models.LogCallback, progress models.ProgressCallback) {
-	utils2.ForceCopy(filepath.Join(homePath, "access.config"), filepath.Join(buildPath, "gameDir", "assets", "access.config"))
-	manifestPath := filepath.Join(buildPath, "gameDir", "AndroidManifest.xml")
-	manifestXml := xml.ParseXml(manifestPath)
-	gamePackage := manifestXml.Attribute["package"]
-	logger.Println("包名：", gamePackage)
 }
 
 func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string) {

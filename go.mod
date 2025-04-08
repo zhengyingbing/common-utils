@@ -1,6 +1,6 @@
 module sdk.wdyxgames.com/gitlab/platform-project/package/package-core
 
-go 1.18
+go 1.22
 
 require (
 	github.com/xyjwsj/xml_parser v1.0.16

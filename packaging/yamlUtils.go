@@ -5,13 +5,18 @@ import (
 	"os"
 )
 
+/**
+ * src:插件yaml
+ * dst:母包yaml
+ */
 func MergeYaml(src, dst string) error {
-	srcResult, err := readYaml[map[string]any](src)
+	println("开始执行MergeYaml----")
+	srcResult, err := readYaml[map[string]interface{}](src)
 	if err != nil {
 		return err
 	}
 
-	dstResult, err := readYaml[map[string]any](dst)
+	dstResult, err := readYaml[map[string]interface{}](dst)
 	if err != nil {
 		return err
 	}
@@ -19,21 +24,25 @@ func MergeYaml(src, dst string) error {
 	if _, ok := srcResult["doNotCompress"]; ok {
 		srcCompress := srcResult["doNotCompress"].([]interface{})
 		dstCompress := dstResult["doNotCompress"].([]interface{})
-		collect := append(srcCompress, dstCompress)
-		srcResult["doNotCompress"] = Duplicate(collect)
+
+		collect := append(srcCompress, dstCompress...)
+		dstResult["doNotCompress"] = Duplicate(collect)
 	}
 
 	if _, ok := srcResult["unknownFiles"]; ok {
-		srcCompress := srcResult["unknownFiles"].([]interface{})
-		dstCompress := dstResult["unknownFiles"].([]interface{})
-		collect := append(srcCompress, dstCompress)
-		srcResult["unknownFiles"] = Duplicate(collect)
+		srcUnknownFiles := srcResult["unknownFiles"].(map[string]interface{})
+		dstUnknownFiles := dstResult["unknownFiles"].(map[string]interface{})
+		for key, val := range srcUnknownFiles {
+			dstUnknownFiles[key] = val
+		}
+
+		dstResult["unknownFiles"] = dstUnknownFiles
 	}
-	marshal, err := yaml.Marshal(srcResult)
+	marshal, err := yaml.Marshal(dstResult)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(src, marshal, os.ModePerm)
+	return os.WriteFile(dst, marshal, os.ModePerm)
 }
 
 func readYaml[T any](yamlPath string) (T, error) {
@@ -55,7 +64,10 @@ func readYaml[T any](yamlPath string) (T, error) {
  * 类型安全，时间复杂度O(n)
  */
 func Duplicate[T comparable](data []T) []T {
-	dataMap := make(map[T]struct{})
+	if len(data) == 0 {
+		return nil
+	}
+	dataMap := make(map[T]struct{}, len(data))
 	result := make([]T, 0, len(data))
 
 	for _, v := range data {

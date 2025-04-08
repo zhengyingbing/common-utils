@@ -66,6 +66,17 @@ func FindTag(tags []*xml.Tag, tagName, androidName string) (int, *xml.Tag) {
 	return 0, nil
 }
 
+func FindSingleTag(tags []*xml.Tag, tagName, attrName, attrVal string) *xml.Tag {
+	for _, item := range tags {
+		if item.Name == tagName {
+			if val, ok := item.Attribute[attrName]; ok && val == attrVal {
+				return item
+			}
+		}
+	}
+	return nil
+}
+
 func PackageName(manifestPath string) string {
 	gameXml := xml.ParseXml(manifestPath)
 	packageName := ""

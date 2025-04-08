@@ -14,6 +14,19 @@ func CreateRegisterMgrInstance() *RegisterMgr {
 	}
 }
 
+func (registerMgr *RegisterMgr) saveLocal(key string, val int) {
+	registerMgr.local[key] = val
+}
+
+func (registerMgr *RegisterMgr) getLocal(key string) int {
+	for k, v := range registerMgr.local {
+		if k == key {
+			return v
+		}
+	}
+	return -1
+}
+
 func (registerMgr *RegisterMgr) saveRef(key string, val any) {
 	registerMgr.ref[key] = val
 }
