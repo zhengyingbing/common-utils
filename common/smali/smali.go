@@ -48,7 +48,6 @@ func ParseSmali(path string) []HexSmaliField {
 	})
 
 	pMethod := false
-
 	utils.ReadLine(path, func(err error, line int, content string) bool {
 		if content == "" {
 			return false
@@ -107,7 +106,7 @@ func parseField(line string, mgr *SmaliMgr) {
 	}
 	line = strings.ReplaceAll(line, replace, "")
 	line = strings.TrimSpace(line)
-	if strings.Contains(line, "=") && !strings.Contains(line, "=null") {
+	if strings.Contains(line, "=") && !strings.Contains(line, "= null") {
 		spilt := strings.Split(line, "=")
 		fieldName := strings.Split(spilt[0], ":")[0]
 		val := utils.Hex2Dec(spilt[1])

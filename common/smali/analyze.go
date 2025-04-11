@@ -28,7 +28,7 @@ func (grammar *Grammar) GrammarCode(key string, params []string) {
 	case key == "sput-object":
 		grammar.sPutObject(params)
 	case key == "aput":
-		grammar.newArray(params)
+		grammar.aPut(params)
 	}
 }
 

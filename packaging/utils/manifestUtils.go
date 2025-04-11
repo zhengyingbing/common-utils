@@ -1,8 +1,8 @@
-package packaging
+package utils
 
 import (
 	xml "github.com/xyjwsj/xml_parser"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/models"
+	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strings"
 )
 

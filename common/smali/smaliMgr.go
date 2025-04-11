@@ -37,6 +37,7 @@ func (smaliMgr *SmaliMgr) AllDexFields() []HexSmaliField {
 			Children: cMap,
 		})
 	}
+	print("AllDexFields的长度：", len(fields))
 	return fields
 }
 

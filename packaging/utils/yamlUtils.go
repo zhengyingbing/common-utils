@@ -1,4 +1,4 @@
-package packaging
+package utils
 
 import (
 	"gopkg.in/yaml.v3"
@@ -10,7 +10,7 @@ import (
  * dst:母包yaml
  */
 func MergeYaml(src, dst string) error {
-	println("开始执行MergeYaml----")
+
 	srcResult, err := readYaml[map[string]interface{}](src)
 	if err != nil {
 		return err

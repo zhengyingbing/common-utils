@@ -39,7 +39,7 @@ func Json2Struct(jsonStr string, obj interface{}) error {
 
 func Hex2Dec(val string) int {
 	val = strings.TrimSpace(val)
-	val = strings.ReplaceAll(val, " ", "")
+	val = strings.ReplaceAll(val, "0x", "")
 	n, err := strconv.ParseUint(val, 16, 32)
 	if err != nil {
 		fmt.Println(err)

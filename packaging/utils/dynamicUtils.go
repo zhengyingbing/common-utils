@@ -1,4 +1,4 @@
-package packaging
+package utils
 
 import (
 	"bytes"
@@ -8,24 +8,45 @@ import (
 	"os"
 	"path/filepath"
 	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/models"
+	models2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strings"
 )
 
 /**
  * 资源替换
  */
-func replaceRes(params *models.PreParams, buildPath, gamePath string) {
+func ReplaceRes(params *models2.PreParams, buildPath, gamePath string, logger models2.LogCallback) {
 	copyAccessConfig(filepath.Join(buildPath, "access.config"), filepath.Join(gamePath, "assets", "access.config"))
 	replacePackageName(gamePath, params.ChannelId)
 	replaceIconAndAppName(buildPath, gamePath, params.ChannelId)
+	replaceDynamicConfig(gamePath, params.ChannelId, logger)
+	replaceGoogleService()
 }
 
+func replaceGoogleService() {
+
+}
+
+func replaceDynamicConfig(gamePath, channelId string, logger models2.LogCallback) {
+	cfgPath := filepath.Join(gamePath, "assets", "dynamic_config.json")
+	if utils2.Exist(cfgPath) {
+		dynamicConfig := make([]models2.DynamicConfig, 0)
+		err := utils2.ParseToStruct(cfgPath, &dynamicConfig)
+		if err != nil {
+			logger.Println("parse dynamicConfig failed, reason: " + err.Error())
+		}
+		models2.OperateDynamic(gamePath, channelId, dynamicConfig, logger)
+	}
+}
+
+/**
+ * 替换图标和应用名称
+ */
 func replaceIconAndAppName(buildPath, gamePath, channelId string) {
 	manifestXml := xml.ParseXml(filepath.Join(gamePath, "AndroidManifest.xml"))
 	_, tag := FindTag(manifestXml.ChildTags, "application", "")
-	app_name := models.GetDynamicConfig(channelId)[models.AppName]
-	icon_name := models.GetDynamicConfig(channelId)[models.IconName]
+	app_name := models2.GetServerDynamic(channelId)[models2.AppName]
+	icon_name := models2.GetServerDynamic(channelId)[models2.IconName]
 	iconFolder := ""
 	iconName := ""
 	appName := ""
@@ -38,6 +59,7 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string) {
 				iconFolder = "drawable-xxhdpi"
 			}
 			iconName = v
+			//注意加上后缀
 			iconName = strings.Split(iconName, "/")[1] + ".png"
 			continue
 		}
@@ -56,7 +78,6 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string) {
 	xml.Serializer(valuesXml, xml.XmlHeaderType, valuesPath)
 
 	iconPath := filepath.Join(buildPath, fmt.Sprint(icon_name))
-	println("图片路径:", iconPath)
 	if !isPng(iconPath) {
 		panic("图标格式错误，非png格式！")
 	} else {
@@ -73,7 +94,7 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string) {
 			}
 		}
 	}
-	utils2.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName))
+	utils2.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName), true)
 }
 
 func isPng(path string) bool {
@@ -116,7 +137,7 @@ func replacePackageName(gamePath, channelId string) {
 	manifestXml := xml.ParseXml(manifestPath)
 	gamePackage := manifestXml.Attribute["package"]
 	println("包名：", gamePackage)
-	pkgName := models.GetDynamicConfig(channelId)[models.BundleId]
+	pkgName := models2.GetServerDynamic(channelId)[models2.BundleId]
 	utils2.ReplaceFile(manifestPath, gamePackage, fmt.Sprint(pkgName))
 	utils2.ReplaceFile(manifestPath, "hlApplicationId", fmt.Sprint(pkgName))
 

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"os"
 )
@@ -28,4 +29,20 @@ func ReadLine(filePath string, callback LineCallback) {
 		}
 		line++
 	}
+}
+
+func ReadAllContent(filePath string) ([]byte, error) {
+	result, err := os.ReadFile(filePath)
+	if err != nil {
+		return make([]byte, 0), err
+	}
+	return result, nil
+}
+
+func ParseToStruct(filePath string, v interface{}) error {
+	content, err := ReadAllContent(filePath)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(content, v)
 }

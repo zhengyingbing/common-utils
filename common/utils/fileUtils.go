@@ -14,13 +14,13 @@ import (
  * @desc: check if a folder
  * @date: 2025/3/19 16:25
  */
-func IsDir(path string) (bool, error) {
+func IsDir(path string) bool {
 	//获取文件信息
 	stat, err := os.Stat(path)
 	if err != nil {
-		return false, err
+		return false
 	}
-	return stat.IsDir(), nil
+	return stat.IsDir()
 }
 
 /**
@@ -28,14 +28,26 @@ func IsDir(path string) (bool, error) {
  * @desc: create a multi-level folders
  * @date: 2025/3/20 14:38
  */
-func Create(path string) error {
+
+func CreateDir(path string) error {
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateFile(path string) (*os.File, error) {
 	p := filepath.Dir(path)
 	if _, err := os.Stat(p); err != nil {
 		if err = os.MkdirAll(p, os.ModePerm); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }
 
 /**
@@ -51,85 +63,57 @@ func Exist(path string) bool {
 	return true
 }
 
-func Copy(src, dst string) error {
-	return copyFile(src, dst, false)
-}
-
 /**
  * @author: zhengyb
  * @desc: copy and cover
  * @date: 2025/3/20 14:39
  */
 func ForceCopy(src, dst string) error {
-	return copyFile(src, dst, true)
+	return Copy(src, dst, true)
 }
 
-func MergeFile(src, dst string, isForced bool) error {
-	if !Exist(src) {
-		return nil
-	}
-	isDir, _ := IsDir(src)
-	if isDir {
+func Copy(src, dst string, isForced bool) error {
+	if IsDir(src) {
 		entries, err := os.ReadDir(src)
 		if err != nil {
-			return fmt.Errorf("read file error: %v", err)
+			return err
 		}
 		for _, item := range entries {
-			err1 := MergeFile(filepath.Join(src, item.Name()), filepath.Join(dst, item.Name()), isForced)
-			if err1 != nil {
-				return err1
-			}
+			err = Copy(filepath.Join(src, item.Name()), filepath.Join(dst, item.Name()), isForced)
 		}
+		return err
 	} else {
-		return Move(src, dst, isForced)
+		return copyFile(src, dst, isForced)
 	}
-	return nil
 }
+
 func copyFile(src, dst string, isForced bool) error {
-	isDir, _ := IsDir(src)
-	if isDir {
-		entries, err := os.ReadDir(src)
-		if err != nil {
-			return fmt.Errorf("read file error: %v", err)
-		}
-		for _, item := range entries {
-			err1 := copyFile(filepath.Join(src, item.Name()), filepath.Join(dst, item.Name()), isForced)
-			if err1 != nil {
-				return err1
-			}
-		}
-	} else {
-
+	if !Exist(dst) || isForced {
 		srcFile, err := os.Open(src)
 		if err != nil {
 			return fmt.Errorf("can't %v", err)
 		}
+		//延迟关闭
 		defer srcFile.Close()
 
-		if isForced || !Exist(dst) {
+		dstFile, err := CreateFile(dst)
+		if err != nil {
+			return fmt.Errorf("can't %v", err)
+		}
 
-			Create(dst)
+		_, err = io.Copy(dstFile, srcFile)
+		if err != nil {
+			return fmt.Errorf("can't Copy %v", err)
+		}
 
-			dstFile, err := os.Create(dst)
-			if err != nil {
-				return fmt.Errorf("can't %v", err)
-			}
-
-			_, err = io.Copy(dstFile, srcFile)
-
-			if err != nil {
-				return fmt.Errorf("can't %v", err)
-			}
-
-			err = dstFile.Sync()
-			if err != nil {
-				return fmt.Errorf("can't %v", err)
-			}
-			err = dstFile.Close()
-			if err != nil {
-				return err
-			}
-
+		err = dstFile.Sync()
+		if err != nil {
+			return fmt.Errorf("can't Sync %v", err)
+		}
+		err = dstFile.Close()
+		if err != nil {
+			panic(err.Error())
+			return err
 		}
 	}
 
@@ -142,26 +126,29 @@ func copyFile(src, dst string, isForced bool) error {
  * @date: 2025/3/20 14:40
  */
 func Move(src, dst string, isForced bool) error {
-
-	if Exist(dst) {
-		if !isForced {
-			return nil
+	if IsDir(src) {
+		//moveDir(srcFilePath, dstFilePath, isForced)
+		files, err := os.ReadDir(src)
+		if err != nil {
+			fmt.Printf("无法读取源文件夹: %v\n", err)
+			return err
+		}
+		if !Exist(dst) {
+			CreateDir(dst)
+		}
+		for _, file := range files {
+			Move(filepath.Join(src, file.Name()), filepath.Join(dst, file.Name()), isForced)
+		}
+	} else {
+		if isForced {
+			Remove(dst)
+		}
+		if !Exist(dst) || isForced {
+			err := os.Rename(src, dst)
+			return err
 		}
 	}
-	err := Create(dst)
-	err = os.Rename(src, dst)
-	return err
-}
-
-/**
- * @author: zhengyb
- * @desc: delete and copy
- * @date: 2025/3/20 14:40
- */
-func ForceMove(src, dst string) error {
-	err := Create(dst)
-	err = os.Rename(src, dst)
-	return err
+	return nil
 }
 
 func ReplaceFile(src, old, new string) error {
