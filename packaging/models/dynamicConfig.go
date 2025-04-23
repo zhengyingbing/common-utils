@@ -9,13 +9,16 @@ import (
 var dynamicCfgMap map[string]map[string]string
 
 const (
-	AppName          = "appName"
-	IconName         = "iconName"
-	BundleId         = "bundleId"
-	KeystoreAlias    = "keystoreAlias"
-	KeystorePass     = "keystorePass"
-	KeyPass          = "keyPass"
-	TargetSdkVersion = "targetSdkVersion"
+	AppName           = "appName"
+	IconName          = "iconName"
+	BundleId          = "bundleId"
+	Orientation       = "orientation"
+	KeystoreAlias     = "keystoreAlias"
+	KeystorePass      = "keystorePass"
+	KeyPass           = "keyPass"
+	SignVersion       = "signVersion"
+	TargetSdkVersion  = "targetSdkVersion"
+	DexMethodCounters = "dexMethodCounters"
 )
 
 func SetServerDynamic(channelId string, cfg map[string]string) {
@@ -35,7 +38,7 @@ func OperateDynamic(gamePath, channelId string, configs []DynamicConfig, logger 
 		for _, operate := range item.Operates {
 			serverDynamic := GetServerDynamic(channelId)
 			if serverDynamic == nil {
-				logger.Println("渠道", channelId, "未获取到管理台配置！")
+				logger.LogDebug("渠道", channelId, "未获取到管理台配置！")
 				return errors.New("get server dynamic config failed！")
 			}
 			switch operate.Operate {
@@ -62,19 +65,19 @@ func replace(config map[string]interface{}, filePath string, dynamic map[string]
 	cfg := ReplaceConfig{}
 	err := utils.Json2Struct(utils.Struct2Json(config), &cfg)
 	if err != nil {
-		logger.Println("dynamic_config replace convert failed")
+		logger.LogDebug("dynamic_config replace convert failed")
 		return
 	}
 	tarVal := cfg.ConstantVal
 	//如果server=false，则cfg.VarName替换成cfg.ConstantVal
 	if cfg.Server {
-		if v, ok := dynamic[cfg.TarName]; ok {
+		if v, ok := dynamic[cfg.VarName]; ok {
 			tarVal = v
 		}
 	}
-	err = utils.ReplaceFile(filePath, cfg.VarName, tarVal)
+	err = utils.ReplaceFile(filePath, cfg.TarName, tarVal)
 	if err != nil {
-		logger.Println("dynamic_config replace failed: " + err.Error())
+		logger.LogDebug("dynamic_config replace failed: " + err.Error())
 	}
 }
 
@@ -82,7 +85,7 @@ func move(config map[string]interface{}, gamePath string, logger LogCallback) {
 	cfg := MoveConfig{}
 	err := utils.Json2Struct(utils.Struct2Json(config), &cfg)
 	if err != nil {
-		logger.Println("dynamic_config move convert failed")
+		logger.LogDebug("dynamic_config move convert failed")
 		return
 	}
 	_ = utils.Move(filepath.Join(gamePath, cfg.Source), filepath.Join(gamePath, cfg.Target), true)

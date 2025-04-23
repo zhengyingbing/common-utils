@@ -102,7 +102,7 @@ func ExecuteShellSync(shell string) ([]string, error) {
 }
 
 func ExecuteShell(shell string) error {
-	log.Println("execute >>", shell)
+	//log.Println("execute >>", shell)
 	//指针变量
 	var cmd *exec.Cmd
 

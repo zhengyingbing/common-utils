@@ -17,8 +17,8 @@ import (
  */
 func ReplaceRes(params *models2.PreParams, buildPath, gamePath string, logger models2.LogCallback) {
 	copyAccessConfig(filepath.Join(buildPath, "access.config"), filepath.Join(gamePath, "assets", "access.config"))
-	replacePackageName(gamePath, params.ChannelId)
-	replaceIconAndAppName(buildPath, gamePath, params.ChannelId)
+	replacePackageName(gamePath, params.ChannelId, logger)
+	replaceIconAndAppName(buildPath, gamePath, params.ChannelId, logger)
 	replaceDynamicConfig(gamePath, params.ChannelId, logger)
 	replaceGoogleService()
 }
@@ -33,7 +33,7 @@ func replaceDynamicConfig(gamePath, channelId string, logger models2.LogCallback
 		dynamicConfig := make([]models2.DynamicConfig, 0)
 		err := utils2.ParseToStruct(cfgPath, &dynamicConfig)
 		if err != nil {
-			logger.Println("parse dynamicConfig failed, reason: " + err.Error())
+			logger.LogDebug("parse dynamicConfig failed, reason: " + err.Error())
 		}
 		models2.OperateDynamic(gamePath, channelId, dynamicConfig, logger)
 	}
@@ -42,7 +42,7 @@ func replaceDynamicConfig(gamePath, channelId string, logger models2.LogCallback
 /**
  * 替换图标和应用名称
  */
-func replaceIconAndAppName(buildPath, gamePath, channelId string) {
+func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models2.LogCallback) {
 	manifestXml := xml.ParseXml(filepath.Join(gamePath, "AndroidManifest.xml"))
 	_, tag := FindTag(manifestXml.ChildTags, "application", "")
 	app_name := models2.GetServerDynamic(channelId)[models2.AppName]
@@ -81,7 +81,7 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string) {
 	if !isPng(iconPath) {
 		panic("图标格式错误，非png格式！")
 	} else {
-		println("icon check ok !")
+		logger.LogDebug("icon check ok !")
 	}
 	resEntries, _ := os.ReadDir(filepath.Join(gamePath, "res"))
 	for _, entry := range resEntries {
@@ -132,11 +132,11 @@ func copyAccessConfig(src string, dst string) {
 /**
  * 替换包名
  */
-func replacePackageName(gamePath, channelId string) {
+func replacePackageName(gamePath, channelId string, logger models2.LogCallback) {
 	manifestPath := filepath.Join(gamePath, "AndroidManifest.xml")
 	manifestXml := xml.ParseXml(manifestPath)
 	gamePackage := manifestXml.Attribute["package"]
-	println("包名：", gamePackage)
+	logger.LogDebug("包名：", gamePackage)
 	pkgName := models2.GetServerDynamic(channelId)[models2.BundleId]
 	utils2.ReplaceFile(manifestPath, gamePackage, fmt.Sprint(pkgName))
 	utils2.ReplaceFile(manifestPath, "hlApplicationId", fmt.Sprint(pkgName))

@@ -133,6 +133,7 @@ func Move(src, dst string, isForced bool) error {
 			fmt.Printf("无法读取源文件夹: %v\n", err)
 			return err
 		}
+
 		if !Exist(dst) {
 			CreateDir(dst)
 		}
@@ -140,6 +141,10 @@ func Move(src, dst string, isForced bool) error {
 			Move(filepath.Join(src, file.Name()), filepath.Join(dst, file.Name()), isForced)
 		}
 	} else {
+		dir := filepath.Dir(dst)
+		if !Exist(dir) {
+			CreateDir(dir)
+		}
 		if isForced {
 			Remove(dst)
 		}
@@ -162,7 +167,8 @@ func ReplaceFile(src, old, new string) error {
 		if err != nil {
 			return err
 		}
-		newContent := strings.ReplaceAll(string(content), old, new)
+
+		newContent := strings.Replace(string(content), old, new, -1)
 		if newContent != string(content) {
 			file, err := os.Stat(src)
 			err = os.WriteFile(src, []byte(newContent), file.Mode())

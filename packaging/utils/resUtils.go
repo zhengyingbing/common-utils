@@ -11,8 +11,8 @@ import (
 )
 
 // 插件apk/res合并到母包/res中
-func MergeRes(src, pluginName, dst string, isForced bool) error {
-	RebuildPluginStyleable(src, pluginName, dst)
+func MergeRes(src, pluginName, dst string, isForced bool, logger models.LogCallback) error {
+	RebuildPluginStyleable(src, pluginName, dst, logger)
 	src = filepath.Join(src, "res")
 	dst = filepath.Join(dst, "res")
 	entries, err := os.ReadDir(src)
@@ -75,7 +75,7 @@ func mergeOtherRes(src, dst string, isForced bool) error {
 	}
 }
 
-func RebuildPluginStyleable(pluginPath, pluginName, gamePath string) {
+func RebuildPluginStyleable(pluginPath, pluginName, gamePath string, logger models.LogCallback) {
 	publicPath := filepath.Join(pluginPath, "res", "values", "public.xml")
 	attrsPath := filepath.Join(pluginPath, "res", "values", "attrs.xml")
 	newAttrsPath := filepath.Join(pluginPath, "res", "values", "values_attrs.xml")
@@ -89,13 +89,13 @@ func RebuildPluginStyleable(pluginPath, pluginName, gamePath string) {
 	packageName := PackageName(filepath.Join(pluginPath, "AndroidManifest.xml"))
 	packagePath := strings.Replace(packageName, ".", utils.Symbol(), -1)
 	styleablePath := filepath.Join(pluginPath, "smali", packagePath, "R$styleable.smali")
-	println(pluginName, "的styleablePath = ", styleablePath)
+	logger.LogDebug(pluginName, "的styleablePath = ", styleablePath)
 	if utils.Exist(styleablePath) {
-		RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrsPath)
+		RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrsPath, logger)
 	} else {
 		err := utils.Remove(publicPath)
 		if err != nil {
-			println("直接删除", publicPath, err.Error())
+			logger.LogDebug("直接删除", publicPath, err.Error())
 		}
 	}
 }
@@ -103,8 +103,8 @@ func RebuildPluginStyleable(pluginPath, pluginName, gamePath string) {
 /**
  * 修复母包中styleable
  */
-func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string) {
-	println("开始执行RebuildStyleable")
+func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string, logger models.LogCallback) {
+	logger.LogDebug("开始执行RebuildStyleable")
 	publicXml := xml.ParseXml(publicPath)
 	attrsXml := xml.ParseXml(attrsPath)
 	parseSmali := smali.ParseSmali(styleablePath)
@@ -161,18 +161,19 @@ func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string) 
 
 	err := utils.Remove(publicPath)
 	if err != nil {
-		println("删除", publicPath, err.Error())
+		logger.LogDebug("删除", publicPath, err.Error())
 	}
 }
 
 func BuildRes(aapt2, gamePath string, logger models.LogCallback) {
-	logger.Println("开始构建res")
+	logger.LogDebug("开始构建res")
 	shellString := aapt2 + " compile --dir " + filepath.Join(gamePath, "res") + " -o " + filepath.Join(gamePath, "res.zip")
+	logger.LogDebug("执行命令:" + shellString)
 	err := utils.ExecuteShell(shellString)
 	if err != nil {
-		logger.Println("res.zip build failed!")
+		logger.LogDebug("res.zip build failed!")
 		panic(err.Error())
 	} else {
-		logger.Println("res.zip build success!")
+		logger.LogDebug("res.zip build success!")
 	}
 }

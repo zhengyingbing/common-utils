@@ -6,6 +6,7 @@ import (
 	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
 	models2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/utils"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,145 +16,211 @@ var (
 )
 
 func Execute(params *models2.PreParams, progress models2.ProgressCallback, logger models2.LogCallback) {
-	initData(params)
+	logger.LogInfo("开始打包")
 	t0 := time.Now().Unix()
-	progress.Progress(channelId, 1)
-	//反编译+资源拷贝
-	decodeAsyncAndCopy(logger, progress)
-	gamePath := filepath.Join(buildPath, "gameDir")
-	//将母包smali2之后的文件合并到主smali中
-	utils.MergeSmaliFiles(filepath.Join(buildPath, "gameDir"))
-	//修复attrs
-	utils.GameRepairStyleable(gamePath)
-	progress.Progress(channelId, 20)
-	t1 := time.Now().Unix()
-	logger.Println("合并前准备工作完成，耗时", t1-t0, "秒")
-
-	//渠道合并，母包优先级高
-	logger.Println("开始渠道包合并")
-	utils.MergeApkDir(buildPath, channel, gamePath, "", logger, progress)
-	progress.Progress(channelId, 35)
-	logger.Println("渠道包合并完成")
-
-	//fastsdk合并，fastsdk优先级高
-	//logger.Println("开始fastsdk合并")
-	utils.MergeApkDir(buildPath, "fastsdk", gamePath, "smali,assets,lib,manifest", logger, progress)
-	progress.Progress(channelId, 40)
-	//logger.Println("fastsdk合并完成")
-
-	//jni合并，lib和smali是jni优先级高
-	//logger.Println("开始jni合并")
-	utils.MergeApkDir(buildPath, "core", gamePath, "smali,lib", logger, progress)
-	progress.Progress(channelId, 45)
-	//logger.Println("jni合并完成")
-
+	//1.初始化
+	logger.LogInfo("开始初始化")
+	initData(params)
+	t1 := t0
 	t2 := time.Now().Unix()
-	logger.Println("包合并完成，耗时", t2-t1, "秒")
+	logger.LogInfo("初始化打包环境完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 5)
 
+	gameDirPath := filepath.Join(homePath, "gameDir")
+	apks := []string{channel, "fastsdk", "channel", "core"}
+	//2.反编译
+	logger.LogInfo("开始反编译apk")
+	decodeApk(gameDirPath, apks, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("反编译完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 10)
+	//3.拷贝
+	logger.LogInfo("开始拷贝apkDir")
+	copyApkDirs(gameDirPath, apks, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("资源拷贝完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 20)
+
+	gamePath := filepath.Join(buildPath, "gameDir")
+
+	//4.将母包smali2之后的文件合并到主smali中
+	logger.LogInfo("开始母包smali合并")
+	utils.MergeSmaliFiles(filepath.Join(buildPath, "gameDir"))
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("母包smali合并完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 25)
+
+	//5.修复母包attrs
+	logger.LogInfo("开始修复母包attrs")
+	utils.GameRepairStyleable(gamePath, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("母包attrs修复完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 30)
+
+	//6.渠道合并，母包优先级高
+	logger.LogInfo("开始包合并处理")
+	utils.MergeApkDir(buildPath, channel, gamePath, "", logger)
+	logger.LogDebug("渠道包合并完成")
+	progress.Progress(channelId, 40)
+
+	//7.fastsdk合并，fastsdk优先级高
+	//logger.LogDebug("开始fastsdk合并")
+	utils.MergeApkDir(buildPath, "fastsdk", gamePath, "smali,assets,lib,manifest", logger)
+	logger.LogDebug("fastsdk合并完成")
+	progress.Progress(channelId, 45)
+
+	//8.jni合并，lib和smali是jni优先级高
+	//logger.LogDebug("开始jni合并")
+	utils.MergeApkDir(buildPath, "core", gamePath, "smali,lib", logger)
+
+	logger.LogDebug("jni合并完成")
+	//9.插件包合并
+	logger.LogDebug("插件包合并完成")
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("包合并完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 50)
+
+	//10.资源替换
+	logger.LogInfo("开始资源替换")
 	//删除未兼容全部架构的动态库
 	utils.DeleteInvalidLibs(gamePath)
+	logger.LogDebug("so库处理完成")
 	utils.ReplaceRes(params, buildPath, gamePath, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("资源替换，耗时", t2-t1, "秒")
 	progress.Progress(channelId, 60)
-	t3 := time.Now().Unix()
-	logger.Println("资源替换，耗时", t3-t2, "秒")
 
+	//11.res构建
+	logger.LogInfo("开始res.zip构建")
 	utils.BuildRes(aapt2, gamePath, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("res.zip构建，耗时", t2-t1, "秒")
 	progress.Progress(channelId, 70)
-	t4 := time.Now().Unix()
-	logger.Println("res.zip构建，耗时", t4-t3, "秒")
+
+	//12.R文件构建
+	logger.LogInfo("开始R文件构建")
 	utils.BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channelId, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("R文件构建完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 75)
+
+	//13.分包
+	logger.LogInfo("开始smali分包")
+	smaliMap := utils.SmaliMap(gamePath, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("smali分包完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 80)
+
+	//14.R文件处理
+	logger.LogInfo("开始R文件处理")
+	replaceR(smaliMap, channelId, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("R文件处理完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 85)
+
+	//15.dex构建
+	logger.LogInfo("开始dex构建")
+	utils.BuildDex(java, smaliJar, gamePath, channelId, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("dex构建完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 90)
+
+	//16.apk构建
+	logger.LogInfo("开始apk构建")
+	utils.CreateApk(gamePath, homePath, java, apktool, logger)
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("apk构建完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 95)
+
+	//17.签名对齐
+	logger.LogInfo("开始apk签名对齐处理")
+	utils.SignApk(gamePath, jarsigner, apksigner, zipalign, params, logger)
+
+	t1 = t2
+	t2 = time.Now().Unix()
+	logger.LogInfo("apk签名对齐完成，耗时", t2-t1, "秒")
+	progress.Progress(channelId, 100)
+
+	logger.LogInfo("打包成功！总耗时", t2-t0, "秒")
+
 }
 
-// 串行执行解包
-func decode(logger models2.LogCallback) {
-	tm := time.Now().Unix()
-	logger.Println("开始解包")
-	gameDirPath := filepath.Join(homePath, "gameDir")
-	target := filepath.Join(homePath, "target")
-	shell := java + " -jar " + apktool + " --frame-path " + target + " --advance d %v" + " --only-main-classes -f -o %v"
-	if !utils2.Exist(filepath.Join(gameDirPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, gameApk, gameDirPath))
+func replaceR(smaliMap map[string]string, channelId string, logger models2.LogCallback) {
+	packageName := models2.GetServerDynamic(channelId)[models2.BundleId]
+	packagePath := strings.Replace(packageName, ".", utils2.Symbol(), -1)
+	for path, name := range smaliMap {
+		if strings.HasPrefix(name, "R$") {
+			if strings.Contains(path, packagePath) {
+				continue
+			} else {
+				utils.ReplaceRFile(packagePath, path, name, logger)
+			}
+		}
 	}
-	shell = java + " -jar " + apktool + " --advance d %v" + " --only-main-classes -f -o %v"
-
-	channelApk := filepath.Join(homePath, "channel", channel+".apk")
-	channelDirPath := filepath.Join(homePath, "channel", channel+"Dir")
-	if !utils2.Exist(filepath.Join(channelDirPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, channelApk, channelDirPath))
-	}
-
-	fastSdkApk := filepath.Join(homePath, "channel", "fastsdk.apk")
-	fastSdkDirPath := filepath.Join(homePath, "channel", "fastsdkDir")
-	if !utils2.Exist(filepath.Join(fastSdkDirPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, fastSdkApk, fastSdkDirPath))
-	}
-
-	jniApk := filepath.Join(homePath, "channel", "core.apk")
-	jniDirPath := filepath.Join(homePath, "channel", "coreDir")
-	if !utils2.Exist(filepath.Join(jniDirPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, jniApk, jniDirPath))
-	}
-
-	tm2 := time.Now().Unix() - tm
-	logger.Println("解包完成，耗时：", tm2, "秒")
-	_ = utils2.Copy(filepath.Join(homePath, "gameDir"), filepath.Join(buildPath, "gameDir"), true)
 }
 
 // 并发执行解包
-func decodeAsyncAndCopy(logger models2.LogCallback, progress models2.ProgressCallback) {
-	tm := time.Now().Unix()
-	logger.Println("开始解包")
-	gameDirPath := filepath.Join(homePath, "gameDir")
+func decodeApk(gameDirPath string, apks []string, logger models2.LogCallback) {
+
 	target := filepath.Join(homePath, "target")
 	shell := java + " -jar " + apktool + " --frame-path " + target + " --advance d %v" + " --only-main-classes -f -o %v"
-	if !utils2.Exist(filepath.Join(gameDirPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, gameApk, gameDirPath))
-	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go decompile(&wg, shell, gameApk, gameDirPath)
+	go decompile(&wg, shell, gameApk, gameDirPath, logger)
 
 	shell = java + " -jar " + apktool + " --advance d %v" + " --only-main-classes -f -o %v"
+	for _, apk := range apks {
+		apkPath := filepath.Join(homePath, "channel", apk+".apk")
+		dirPath := filepath.Join(homePath, "channel", apk+"Dir")
+		wg.Add(1)
+		go decompile(&wg, shell, apkPath, dirPath, logger)
 
-	channelApk := filepath.Join(homePath, "channel", channel+".apk")
-	channelDirPath := filepath.Join(homePath, "channel", channel+"Dir")
-	wg.Add(1)
-	go decompile(&wg, shell, channelApk, channelDirPath)
-
-	fastSdkApk := filepath.Join(homePath, "channel", "fastsdk.apk")
-	fastSdkDirPath := filepath.Join(homePath, "channel", "fastsdkDir")
-	wg.Add(1)
-	go decompile(&wg, shell, fastSdkApk, fastSdkDirPath)
-
-	jniApk := filepath.Join(homePath, "channel", "core.apk")
-	jniDirPath := filepath.Join(homePath, "channel", "coreDir")
-	wg.Add(1)
-	go decompile(&wg, shell, jniApk, jniDirPath)
-
+	}
 	wg.Wait()
-	progress.Progress(channelId, 20)
-	tm2 := time.Now().Unix()
-	logger.Println("解包完成，耗时：", tm2-tm, "秒")
-	logger.Println("开始拷贝资源")
-
-	copyApkDir(gameDirPath, filepath.Join(buildPath, "gameDir"))
-	copyApkDir(channelDirPath, filepath.Join(buildPath, channel+"Dir"))
-	copyApkDir(fastSdkDirPath, filepath.Join(buildPath, "fastsdkDir"))
-	copyApkDir(jniDirPath, filepath.Join(buildPath, "coreDir"))
-	tm3 := time.Now().Unix()
-	logger.Println("资源拷贝完成，耗时：", tm3-tm2, "秒")
-	progress.Progress(channelId, 30)
 }
 
-func copyApkDir(src, dst string) {
-	utils2.Copy(src, dst, false)
+// 并发执行拷贝
+func copyApkDirs(gameDirPath string, apks []string, logger models2.LogCallback) {
+	copyWg := sync.WaitGroup{}
+	copyWg.Add(len(apks) + 1) // 所有解包任务 + 母包拷贝
+	// 拷贝母包
+	go func() {
+		defer copyWg.Done()
+		utils2.Copy(gameDirPath, filepath.Join(buildPath, "gameDir"), false)
+		logger.LogDebug("gameDir拷贝完成")
+	}()
+
+	for _, apk := range apks {
+		go func(name string) {
+			defer copyWg.Done()
+			dirPath := filepath.Join(homePath, "channel", name+"Dir")
+			dstPath := filepath.Join(buildPath, name+"Dir")
+			utils2.Copy(dirPath, dstPath, false)
+			logger.LogDebug(name+"Dir", "拷贝完成")
+		}(apk)
+	}
+	copyWg.Wait()
 }
 
-func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string) {
+func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string, logger models2.LogCallback) {
 	defer wg.Done()
 	if !utils2.Exist(filepath.Join(outPath, "AndroidManifest.xml")) {
-		_ = utils2.ExecuteShell(fmt.Sprintf(shell, apkPath, outPath))
+		decodeShell := fmt.Sprintf(shell, apkPath, outPath)
+		logger.LogDebug("执行命令：" + decodeShell)
+		_ = utils2.ExecuteShell(decodeShell)
 	}
 }
 
