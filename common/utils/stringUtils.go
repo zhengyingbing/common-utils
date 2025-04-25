@@ -37,6 +37,9 @@ func Json2Struct(jsonStr string, obj interface{}) error {
 	return json.Unmarshal([]byte(jsonStr), &obj)
 }
 
+/**
+ * 将16进制格式的字符串转换成32位无符号整数
+ */
 func Hex2Dec(val string) int {
 	val = strings.TrimSpace(val)
 	val = strings.ReplaceAll(val, "0x", "")

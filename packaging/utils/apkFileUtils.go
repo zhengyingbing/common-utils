@@ -21,18 +21,8 @@ func MergeApkDir(buildPath, pluginName, gamePath string, rules string, logger mo
 		logger.LogDebug("Error: " + err.Error())
 		panic(err.(interface{}))
 	}
-	if utils2.Exist(filepath.Join(pluginPath, "META-INF")) {
-		utils2.Remove(filepath.Join(pluginPath, "META-INF"))
-	}
-
-	for _, entry := range entries {
-		if strings.Contains(entry.Name(), "smali") {
-			priority := strings.Contains(rules, entry.Name())
-			//smali合并时全部合并到母包的“主smali”中
-			err = utils2.Move(filepath.Join(pluginPath, entry.Name()), filepath.Join(gamePath, "smali"), priority)
-		}
-	}
-	logger.LogVerbose(pluginName, "smali合并完成")
+	logger.LogDebug("pluginPath: " + pluginPath)
+	MergeSmali(pluginPath, gamePath, pluginName, rules, entries, logger)
 
 	if utils2.Exist(filepath.Join(pluginPath, "res")) {
 		priority := strings.Contains(rules, "res")
@@ -78,21 +68,6 @@ func MergeSmaliFiles(src string) {
 			utils2.Remove(filepath.Join(src, entry.Name()))
 		}
 	}
-}
-
-func GameRepairStyleable(gameDir string, logger models2.LogCallback) {
-	logger.LogDebug("开始执行GameRepairStyleable")
-	attrsPath := filepath.Join(gameDir, "res", "values", "attrs.xml")
-	newAttrsPath := filepath.Join(gameDir, "res", "values", "values_attrs.xml")
-
-	if utils2.Exist(attrsPath) && !utils2.Exist(newAttrsPath) {
-		pkgName := PackageName(filepath.Join(gameDir, "AndroidManifest.xml"))
-		pkgPath := strings.Replace(pkgName, ".", utils2.Symbol(), -1)
-		styleablePath := filepath.Join(gameDir, "smali", utils2.Symbol(), pkgPath, "R$styleable.smali")
-		publicPath := filepath.Join(gameDir, "res", "values", "public.xml")
-		RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrsPath, logger)
-	}
-
 }
 
 /**

@@ -37,8 +37,24 @@ func SmaliMap(path string, logger models.LogCallback) map[string]string {
 	return smaliPathMap
 }
 
+func MergeSmali(pluginPath, gamePath, pluginName, rules string, entries []os.DirEntry, logger models.LogCallback) {
+
+	if utils.Exist(filepath.Join(pluginPath, "META-INF")) {
+		utils.Remove(filepath.Join(pluginPath, "META-INF"))
+	}
+
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), "smali") {
+			priority := strings.Contains(rules, entry.Name())
+			//smali合并时全部合并到母包的“主smali”中
+			_ = utils.Move(filepath.Join(pluginPath, entry.Name()), filepath.Join(gamePath, "smali"), priority)
+		}
+	}
+	logger.LogVerbose(pluginName, "smali合并完成")
+}
+
 /**
- * packagePath:包名路径 com\hoolai\xx\xx\xx
+ * gamePackagePath:包名路径 com\hoolai\xx\xx\xx
  * filePath:R文件路径 C:\apktool\test\smali\com\a\b\R$attr.smali
  * name:R文件名称 R$attr.smali
  */

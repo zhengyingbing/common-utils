@@ -47,7 +47,7 @@ func Execute(params *models2.PreParams, progress models2.ProgressCallback, logge
 
 	//4.将母包smali2之后的文件合并到主smali中
 	logger.LogInfo("开始母包smali合并")
-	utils.MergeSmaliFiles(filepath.Join(buildPath, "gameDir"))
+	utils.MergeSmaliFiles(gamePath)
 	t1 = t2
 	t2 = time.Now().Unix()
 	logger.LogInfo("母包smali合并完成，耗时", t2-t1, "秒")
@@ -65,13 +65,13 @@ func Execute(params *models2.PreParams, progress models2.ProgressCallback, logge
 	logger.LogInfo("开始包合并处理")
 	utils.MergeApkDir(buildPath, channel, gamePath, "", logger)
 	logger.LogDebug("渠道包合并完成")
-	progress.Progress(channelId, 40)
+	progress.Progress(channelId, 35)
 
 	//7.fastsdk合并，fastsdk优先级高
 	//logger.LogDebug("开始fastsdk合并")
 	utils.MergeApkDir(buildPath, "fastsdk", gamePath, "smali,assets,lib,manifest", logger)
 	logger.LogDebug("fastsdk合并完成")
-	progress.Progress(channelId, 45)
+	progress.Progress(channelId, 40)
 
 	//8.jni合并，lib和smali是jni优先级高
 	//logger.LogDebug("开始jni合并")
@@ -80,6 +80,8 @@ func Execute(params *models2.PreParams, progress models2.ProgressCallback, logge
 	logger.LogDebug("jni合并完成")
 	//9.插件包合并
 	logger.LogDebug("插件包合并完成")
+	progress.Progress(channelId, 45)
+
 	t1 = t2
 	t2 = time.Now().Unix()
 	logger.LogInfo("包合并完成，耗时", t2-t1, "秒")

@@ -97,18 +97,21 @@ func parseMethod(line string, grammar *Grammar) bool {
 }
 
 func parseField(line string, mgr *SmaliMgr) {
+	//.field public static final ActionBar_backgroundSplit:I = 0x1
 	var replace string
 	if strings.Contains(line, ".field public static") {
-		replace = ".field public static "
+		replace = ".field public static"
 	}
 	if strings.Contains(line, ".field public static final") {
-		replace = ".field public static final "
+		replace = ".field public static final"
 	}
 	line = strings.ReplaceAll(line, replace, "")
 	line = strings.TrimSpace(line)
+	//line变为ActionBar_backgroundSplit:I = 0x1
 	if strings.Contains(line, "=") && !strings.Contains(line, "= null") {
 		spilt := strings.Split(line, "=")
 		fieldName := strings.Split(spilt[0], ":")[0]
+		//将字符串类型的值转换成整数
 		val := utils.Hex2Dec(spilt[1])
 		mgr.AddChildField(fieldName, val)
 	} else {

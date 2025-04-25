@@ -12,7 +12,7 @@ type HexSmaliField struct {
 
 type SmaliField struct {
 	Name     string         `json:"name"`
-	Chileren map[string]int `json:"children"`
+	Children map[string]int `json:"children"`
 }
 
 type SmaliMgr struct {
@@ -29,7 +29,7 @@ func (smaliMgr *SmaliMgr) AllDexFields() []HexSmaliField {
 	fields := make([]HexSmaliField, 0)
 	for _, item := range smaliMgr.fields {
 		cMap := make(map[string]string)
-		for k, v := range item.Chileren {
+		for k, v := range item.Children {
 			cMap[k] = utils.Dec2Hex(v)
 		}
 		fields = append(fields, HexSmaliField{
@@ -44,8 +44,8 @@ func (smaliMgr *SmaliMgr) AllDexFields() []HexSmaliField {
 func (smaliMgr *SmaliMgr) ConfigFieldVal(name string, valArr []int) {
 	for _, item := range smaliMgr.fields {
 		if item.Name == name {
-			for k, v := range item.Chileren {
-				item.Chileren[k] = valArr[v]
+			for k, v := range item.Children {
+				item.Children[k] = valArr[v]
 			}
 		}
 	}
@@ -62,7 +62,7 @@ func (smaliMgr *SmaliMgr) AddField(name string) {
 	if !exist {
 		smaliMgr.fields = append(smaliMgr.fields, &SmaliField{
 			Name:     name,
-			Chileren: make(map[string]int),
+			Children: make(map[string]int),
 		})
 	}
 }
@@ -70,7 +70,7 @@ func (smaliMgr *SmaliMgr) AddField(name string) {
 func (smaliMgr *SmaliMgr) AddChildField(name string, val int) {
 	for i := len(smaliMgr.fields) - 1; i >= 0; i-- {
 		if strings.HasPrefix(name, smaliMgr.fields[i].Name+"_") {
-			smaliMgr.fields[i].Chileren[name] = val
+			smaliMgr.fields[i].Children[name] = val
 			break
 		}
 	}

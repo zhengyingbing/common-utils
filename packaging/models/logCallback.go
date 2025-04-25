@@ -2,6 +2,7 @@ package models
 
 import (
 	"log"
+	"time"
 )
 
 const (
@@ -37,19 +38,19 @@ type LogImpl struct {
 
 func (LogImpl) LogVerbose(data ...any) {
 	if logLevel <= VERBOSE {
-		log.Println(append([]interface{}{"[VERBOSE]"}, data...)...)
+		log.Println(append([]interface{}{"[VERBOSE]", time.DateTime}, data...)...)
 	}
 }
 
 func (LogImpl) LogInfo(data ...any) {
 	if logLevel <= INFO {
-		log.Println(append([]interface{}{colorBlue + "[INFO]" + colorReset}, data...)...)
+		log.Println(append([]interface{}{colorBlue + "[INFO]" + colorReset, time.DateTime}, data...)...)
 	}
 }
 
 func (LogImpl) LogDebug(data ...any) {
 	if logLevel <= DEBUG {
-		log.Println(append([]interface{}{colorGreen + "[DEBUG]" + colorReset}, data...)...)
+		log.Println(append([]interface{}{colorGreen + "[DEBUG]" + colorReset, time.DateTime}, data...)...)
 	}
 }
 

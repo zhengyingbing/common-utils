@@ -19,6 +19,7 @@ func GameRepairStyleable(gameDir string, logger models2.LogCallback) {
 		pkgName := PackageName(filepath.Join(gameDir, "AndroidManifest.xml"))
 		pkgPath := strings.Replace(pkgName, ".", utils2.Symbol(), -1)
 		styleablePath := filepath.Join(gameDir, "smali", utils2.Symbol(), pkgPath, "R$styleable.smali")
+		println(styleablePath)
 		publicPath := filepath.Join(gameDir, "res", "values", "public.xml")
 		RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrsPath, logger)
 	}
@@ -30,14 +31,14 @@ func GameRepairStyleable(gameDir string, logger models2.LogCallback) {
 func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string, logger models2.LogCallback) {
 	logger.LogDebug("开始执行RebuildStyleable")
 	publicXml := xml.ParseXml(publicPath)
-	attrsXml := xml.ParseXml(attrsPath)
+	//attrsXml := xml.ParseXml(attrsPath)
 	parseSmali := smali.ParseSmali(styleablePath)
 	tag := xml.Tag{
 		Name:      "resources",
 		Attribute: nil,
 		ChildTags: make([]*xml.Tag, 0),
 	}
-
+	//itemTag := make(map[string]bool)
 	for _, item := range parseSmali {
 		parentTag := xml.Tag{
 			Name:      "declare-styleable",
@@ -49,7 +50,6 @@ func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string, 
 		for k, v := range item.Children {
 			findSingleTag := FindSingleTag(publicXml.ChildTags, "public", "id", v)
 			attribute := make(map[string]string)
-			var tags []*xml.Tag
 			if findSingleTag == nil {
 				attribute["name"] = strings.ReplaceAll(k, item.Name+"_android_", "android:")
 				if strings.HasPrefix(k, "android_lStar") {
@@ -62,31 +62,13 @@ func RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrPath string, 
 
 			} else {
 				k = findSingleTag.Attribute["name"]
-				v = findSingleTag.Attribute["type"]
-				if v == "attr" {
-					attrTag := FindSingleTag(attrsXml.ChildTags, "attr", "name", k)
-					if attrTag.ChildTags != nil && len(attrTag.ChildTags) != 0 {
-						for _, item2 := range attrTag.ChildTags {
-							attribute2 := make(map[string]string)
-							attribute2["name"] = item2.Attribute["name"]
-							attribute2["value"] = item2.Attribute["value"]
-							tag3 := xml.Tag{
-								Name:      item2.Name,
-								Attribute: attribute2,
-								ChildTags: make([]*xml.Tag, 0),
-							}
-							tags = append(tags, &tag3)
-						}
-					} else {
-						attribute["format"] = attrTag.Attribute["format"]
-					}
-				}
 				attribute["name"] = k
 			}
 			parentTag.ChildTags = append(parentTag.ChildTags, &xml.Tag{
 				Name:      "attr",
 				Attribute: attribute,
-				ChildTags: tags,
+
+				ChildTags: nil,
 				Parent:    nil,
 			})
 		}
@@ -112,9 +94,10 @@ func RebuildPluginStyleable(pluginPath, pluginName, gamePath string, logger mode
 	}
 	packageName := PackageName(filepath.Join(pluginPath, "AndroidManifest.xml"))
 	packagePath := strings.Replace(packageName, ".", utils2.Symbol(), -1)
-	styleablePath := filepath.Join(pluginPath, "smali", packagePath, "R$styleable.smali")
-	logger.LogDebug(pluginName, "的styleablePath = ", styleablePath)
+	styleablePath := filepath.Join(gamePath, "smali", packagePath, "R$styleable.smali")
+
 	if utils2.Exist(styleablePath) {
+		logger.LogInfo(pluginName, "的styleablePath = ", styleablePath)
 		RebuildStyleable(styleablePath, publicPath, attrsPath, newAttrsPath, logger)
 	} else {
 		err := utils2.Remove(publicPath)
