@@ -11,7 +11,7 @@ import (
 
 // 插件apk/res合并到母包/res中
 func MergeRes(src, pluginName, dst string, isForced bool, logger models.LogCallback) error {
-	RebuildPluginStyleable(src, pluginName, dst, logger)
+	RepairPluginStyleable(src, pluginName, dst, logger)
 	src = filepath.Join(src, "res")
 	dst = filepath.Join(dst, "res")
 	entries, err := os.ReadDir(src)

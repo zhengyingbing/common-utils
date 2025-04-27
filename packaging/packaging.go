@@ -55,7 +55,7 @@ func Execute(params *models2.PreParams, progress models2.ProgressCallback, logge
 
 	//5.修复母包attrs
 	logger.LogInfo("开始修复母包attrs")
-	utils.GameRepairStyleable(gamePath, logger)
+	utils.RepairGameStyleable(gamePath, logger)
 	t1 = t2
 	t2 = time.Now().Unix()
 	logger.LogInfo("母包attrs修复完成，耗时", t2-t1, "秒")
