@@ -4,7 +4,6 @@ import (
 	xml "github.com/xyjwsj/xml_parser"
 	"os"
 	"path/filepath"
-	"regexp"
 	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
 	models2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strings"
@@ -54,29 +53,54 @@ func RepairPluginStyleable(pluginPath, pluginName, gamePath string, logger model
 func RebuildStyleable(styleablePath, newAttrPath string, logger models2.LogCallback) {
 	//解析smali
 	result := make(map[string][]string)
-	pattern := regexp.MustCompile(`_([a-z]+)`)
+	keyMap := make(map[string]bool)
+	//pattern := regexp.MustCompile(`_([a-z]+)`)
 	utils2.ReadLine(styleablePath, func(err error, line int, content string) bool {
 		if content == "" {
 			return false
 		}
+		if strings.Contains(content, ".field public static final ") && strings.Contains(content, "[I") {
+			content = strings.TrimSpace(strings.Replace(content, ".field public static final ", "", -1))
+			i := strings.Index(content, "[I")
+			key := content[0 : i-1]
+			keyMap[key] = true
+		}
+		return false
+	})
+
+	utils2.ReadLine(styleablePath, func(err error, line int, content string) bool {
+		if content == "" {
+			return false
+		}
+
 		content = strings.TrimSpace(content)
+
 		if strings.Contains(content, ".field public static final ") && strings.Contains(content, ":I") {
+
 			content = strings.Replace(content, ".field public static final ", "", -1)
 			v := content[0:strings.Index(content, ":I")]
+			//println(v)
+			var longestKey string
+			maxLen := 0
+			for value, _ := range keyMap {
+				if strings.HasPrefix(v, value) && len(value) > maxLen {
+					longestKey = value
+					maxLen = len(value)
+				}
+			}
+			if longestKey != "" {
+				// 提取值部分（去掉key和可能的_）
+				value := strings.TrimPrefix(v, longestKey)
+				value = strings.TrimPrefix(value, "_")
 
-			println(v)
-			matches := pattern.FindStringSubmatch(v)
-			if len(matches) >= 0 {
-				prefix := matches[1] // 前半部分（Aa_Bc）
-				i := strings.Index(v, prefix)
-				key := v[0 : i-1]
-				value := v[i:]
+				// 添加到结果map
+				if _, exists := result[longestKey]; !exists {
+					result[longestKey] = []string{}
+				}
 				if strings.HasPrefix(value, "android_") {
 					value = strings.Replace(value, "android_", "android:", -1)
 				}
-				//println("前半段：", key)
-				//println("后半段:", value)
-				result[key] = append(result[key], value)
+				result[longestKey] = append(result[longestKey], value)
 			}
 		}
 		return false
