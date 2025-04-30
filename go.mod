@@ -1,4 +1,4 @@
-module sdk.wdyxgames.com/gitlab/platform-project/package/package-core
+module github.com/zhengyingbing/common-utils
 
 go 1.22
 

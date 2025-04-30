@@ -2,10 +2,10 @@ package packaging
 
 import (
 	"fmt"
+	utils2 "github.com/zhengyingbing/common-utils/common/utils"
+	"github.com/zhengyingbing/common-utils/packaging/models"
+	"github.com/zhengyingbing/common-utils/packaging/utils"
 	"path/filepath"
-	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	models2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/utils"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +15,7 @@ var (
 	homePath, buildPath, gameApk, channel, channelId, androidJar, apktool, baksmali, smaliJar, aapt2, apksigner, dx, zipalign, java, javac, jarsigner string
 )
 
-func Execute(params *models2.PreParams, progress models2.ProgressCallback, logger models2.LogCallback) {
+func Execute(params *models.PreParams, progress models.ProgressCallback, logger models.LogCallback) {
 	logger.LogInfo("开始打包")
 	t0 := time.Now().Unix()
 	//1.初始化
@@ -159,8 +159,8 @@ func Execute(params *models2.PreParams, progress models2.ProgressCallback, logge
 
 }
 
-func replaceR(smaliMap map[string]string, channelId string, logger models2.LogCallback) {
-	packageName := models2.GetServerDynamic(channelId)[models2.BundleId]
+func replaceR(smaliMap map[string]string, channelId string, logger models.LogCallback) {
+	packageName := models.GetServerDynamic(channelId)[models.BundleId]
 	packagePath := strings.Replace(packageName, ".", utils2.Symbol(), -1)
 	for path, name := range smaliMap {
 		if strings.HasPrefix(name, "R$") {
@@ -174,7 +174,7 @@ func replaceR(smaliMap map[string]string, channelId string, logger models2.LogCa
 }
 
 // 并发执行解包
-func decodeApk(gameDirPath string, apks []string, logger models2.LogCallback) {
+func decodeApk(gameDirPath string, apks []string, logger models.LogCallback) {
 
 	target := filepath.Join(homePath, "target")
 	shell := java + " -jar " + apktool + " --frame-path " + target + " --advance d %v" + " --only-main-classes -f -o %v"
@@ -195,7 +195,7 @@ func decodeApk(gameDirPath string, apks []string, logger models2.LogCallback) {
 }
 
 // 并发执行拷贝
-func copyApkDirs(gameDirPath string, apks []string, logger models2.LogCallback) {
+func copyApkDirs(gameDirPath string, apks []string, logger models.LogCallback) {
 	copyWg := sync.WaitGroup{}
 	copyWg.Add(len(apks) + 1) // 所有解包任务 + 母包拷贝
 	// 拷贝母包
@@ -217,7 +217,7 @@ func copyApkDirs(gameDirPath string, apks []string, logger models2.LogCallback) 
 	copyWg.Wait()
 }
 
-func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string, logger models2.LogCallback) {
+func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string, logger models.LogCallback) {
 	defer wg.Done()
 	if !utils2.Exist(filepath.Join(outPath, "AndroidManifest.xml")) {
 		decodeShell := fmt.Sprintf(shell, apkPath, outPath)
@@ -226,7 +226,7 @@ func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string,
 	}
 }
 
-func initData(params *models2.PreParams) {
+func initData(params *models.PreParams) {
 	homePath = params.HomePath
 	buildPath = params.BuildPath
 	gameApk = params.GamePath
