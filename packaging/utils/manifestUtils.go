@@ -2,9 +2,9 @@ package utils
 
 import (
 	xml "github.com/xyjwsj/xml_parser"
+	"github.com/zhengyingbing/common-utils/common/utils"
+	"github.com/zhengyingbing/common-utils/packaging/models"
 	"path/filepath"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strings"
 )
 

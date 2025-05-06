@@ -3,11 +3,11 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"github.com/zhengyingbing/common-utils/common/utils"
+	"github.com/zhengyingbing/common-utils/packaging/models"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strconv"
 	"strings"
 	"sync"

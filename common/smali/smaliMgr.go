@@ -1,7 +1,7 @@
 package smali
 
 import (
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
+	"github.com/zhengyingbing/common-utils/common/utils"
 	"strings"
 )
 

@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"fmt"
 	xml "github.com/xyjwsj/xml_parser"
+	"github.com/zhengyingbing/common-utils/common/utils"
+	"github.com/zhengyingbing/common-utils/packaging/models"
 	"image/png"
 	"os"
 	"path/filepath"
-	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	models2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strings"
 )
 
 /**
  * 资源替换
  */
-func ReplaceRes(params *models2.PreParams, buildPath, gamePath string, logger models2.LogCallback) {
+func ReplaceRes(params *models.PreParams, buildPath, gamePath string, logger models.LogCallback) {
 	copyAccessConfig(filepath.Join(buildPath, "access.config"), filepath.Join(gamePath, "assets", "access.config"))
 	replacePackageName(gamePath, params.ChannelId, logger)
 	replaceIconAndAppName(buildPath, gamePath, params.ChannelId, logger)
@@ -27,26 +27,26 @@ func replaceGoogleService() {
 
 }
 
-func replaceDynamicConfig(gamePath, channelId string, logger models2.LogCallback) {
+func replaceDynamicConfig(gamePath, channelId string, logger models.LogCallback) {
 	cfgPath := filepath.Join(gamePath, "assets", "dynamic_config.json")
-	if utils2.Exist(cfgPath) {
-		dynamicConfig := make([]models2.DynamicConfig, 0)
-		err := utils2.ParseToStruct(cfgPath, &dynamicConfig)
+	if utils.Exist(cfgPath) {
+		dynamicConfig := make([]models.DynamicConfig, 0)
+		err := utils.ParseToStruct(cfgPath, &dynamicConfig)
 		if err != nil {
 			logger.LogDebug("parse dynamicConfig failed, reason: " + err.Error())
 		}
-		models2.OperateDynamic(gamePath, channelId, dynamicConfig, logger)
+		models.OperateDynamic(gamePath, channelId, dynamicConfig, logger)
 	}
 }
 
 /**
  * 替换图标和应用名称
  */
-func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models2.LogCallback) {
+func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models.LogCallback) {
 	manifestXml := xml.ParseXml(filepath.Join(gamePath, "AndroidManifest.xml"))
 	_, tag := FindTag(manifestXml.ChildTags, "application", "")
-	app_name := models2.GetServerDynamic(channelId)[models2.AppName]
-	icon_name := models2.GetServerDynamic(channelId)[models2.IconName]
+	app_name := models.GetServerDynamic(channelId)[models.AppName]
+	icon_name := models.GetServerDynamic(channelId)[models.IconName]
 	iconFolder := ""
 	iconName := ""
 	appName := ""
@@ -89,12 +89,12 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models2
 			childs, _ := os.ReadDir(filepath.Join(gamePath, "res", entry.Name()))
 			for _, child := range childs {
 				if child.Name() == iconName {
-					utils2.Remove(filepath.Join(gamePath, "res", entry.Name(), iconName))
+					utils.Remove(filepath.Join(gamePath, "res", entry.Name(), iconName))
 				}
 			}
 		}
 	}
-	utils2.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName), true)
+	utils.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName), true)
 }
 
 func isPng(path string) bool {
@@ -126,19 +126,19 @@ func isPng(path string) bool {
 }
 
 func copyAccessConfig(src string, dst string) {
-	utils2.ForceCopy(src, dst)
+	utils.ForceCopy(src, dst)
 }
 
 /**
  * 替换包名
  */
-func replacePackageName(gamePath, channelId string, logger models2.LogCallback) {
+func replacePackageName(gamePath, channelId string, logger models.LogCallback) {
 	manifestPath := filepath.Join(gamePath, "AndroidManifest.xml")
 	manifestXml := xml.ParseXml(manifestPath)
 	gamePackage := manifestXml.Attribute["package"]
 	logger.LogDebug("包名：", gamePackage)
-	pkgName := models2.GetServerDynamic(channelId)[models2.BundleId]
-	utils2.ReplaceFile(manifestPath, gamePackage, fmt.Sprint(pkgName))
-	utils2.ReplaceFile(manifestPath, "hlApplicationId", fmt.Sprint(pkgName))
+	pkgName := models.GetServerDynamic(channelId)[models.BundleId]
+	utils.ReplaceFile(manifestPath, gamePackage, fmt.Sprint(pkgName))
+	utils.ReplaceFile(manifestPath, "hlApplicationId", fmt.Sprint(pkgName))
 
 }

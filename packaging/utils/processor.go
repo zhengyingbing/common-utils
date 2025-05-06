@@ -3,11 +3,11 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"github.com/zhengyingbing/common-utils/common/utils"
+	"github.com/zhengyingbing/common-utils/packaging/models"
 	"os"
 	"path/filepath"
 	"regexp"
-	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,7 +98,7 @@ func (p *Processor) GetDexInfo(buildApkDir, channelId string, logger models.LogC
 
 	// 遍历 smaliMap
 	for srcFile, destNewPath := range p.smaliMap {
-		err := utils2.Move(srcFile, destNewPath, true)
+		err := utils.Move(srcFile, destNewPath, true)
 		if err != nil {
 			logger.LogDebug(err.Error())
 			logger.LogDebug("移动路径", srcFile, destNewPath)

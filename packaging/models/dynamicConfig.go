@@ -2,8 +2,8 @@ package models
 
 import (
 	"errors"
+	"github.com/zhengyingbing/common-utils/common/utils"
 	"path/filepath"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
 )
 
 var dynamicCfgMap map[string]map[string]string
