@@ -1,6 +1,7 @@
 package models
 
 type PreParams struct {
-	JavaHome, AndroidHome, BuildPath, Channel, ChannelId, HomePath, ExpandPath, GamePath, KeystoreName string
-	Plugins                                                                                            []string
+	JavaHome, AndroidHome, ApkPath, RootPath, OutPutPath                  string
+	PackageName, ProductId, ApkName, ChannelName, ChannelId, KeystoreName string
+	Plugins                                                               []string
 }

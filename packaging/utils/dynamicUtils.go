@@ -15,11 +15,11 @@ import (
 /**
  * 资源替换
  */
-func ReplaceRes(params *models.PreParams, buildPath, gamePath string, logger models.LogCallback) {
-	copyAccessConfig(filepath.Join(buildPath, "access.config"), filepath.Join(gamePath, "assets", "access.config"))
-	replacePackageName(gamePath, params.ChannelId, logger)
-	replaceIconAndAppName(buildPath, gamePath, params.ChannelId, logger)
-	replaceDynamicConfig(gamePath, params.ChannelId, logger)
+func ReplaceRes(params *models.PreParams, configPath, gameDirPath string, logger models.LogCallback) {
+	copyAccessConfig(filepath.Join(configPath, "access.config"), filepath.Join(gameDirPath, "assets", "access.config"))
+	replacePackageName(gameDirPath, params.ChannelId, logger)
+	replaceIconAndAppName(configPath, gameDirPath, params.ChannelId, logger)
+	replaceDynamicConfig(gameDirPath, params.ChannelId, logger)
 	replaceGoogleService()
 }
 
@@ -27,23 +27,23 @@ func replaceGoogleService() {
 
 }
 
-func replaceDynamicConfig(gamePath, channelId string, logger models.LogCallback) {
-	cfgPath := filepath.Join(gamePath, "assets", "dynamic_config.json")
+func replaceDynamicConfig(gameDirPath, channelId string, logger models.LogCallback) {
+	cfgPath := filepath.Join(gameDirPath, "assets", "dynamic_config.json")
 	if utils.Exist(cfgPath) {
 		dynamicConfig := make([]models.DynamicConfig, 0)
 		err := utils.ParseToStruct(cfgPath, &dynamicConfig)
 		if err != nil {
 			logger.LogDebug("parse dynamicConfig failed, reason: " + err.Error())
 		}
-		models.OperateDynamic(gamePath, channelId, dynamicConfig, logger)
+		models.OperateDynamic(gameDirPath, channelId, dynamicConfig, logger)
 	}
 }
 
 /**
  * 替换图标和应用名称
  */
-func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models.LogCallback) {
-	manifestXml := xml.ParseXml(filepath.Join(gamePath, "AndroidManifest.xml"))
+func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger models.LogCallback) {
+	manifestXml := xml.ParseXml(filepath.Join(gameDirPath, "AndroidManifest.xml"))
 	_, tag := FindTag(manifestXml.ChildTags, "application", "")
 	app_name := models.GetServerDynamic(channelId)[models.AppName]
 	icon_name := models.GetServerDynamic(channelId)[models.IconName]
@@ -70,31 +70,31 @@ func replaceIconAndAppName(buildPath, gamePath, channelId string, logger models.
 			continue
 		}
 	}
-	valuesPath := filepath.Join(gamePath, "res", "values", "strings.xml")
+	valuesPath := filepath.Join(gameDirPath, "res", "values", "strings.xml")
 	valuesXml := xml.ParseXml(valuesPath)
 
 	resourceTag := FindSingleTag(valuesXml.ChildTags, "string", "name", appName)
 	resourceTag.Value = fmt.Sprint(app_name)
 	xml.Serializer(valuesXml, xml.XmlHeaderType, valuesPath)
 
-	iconPath := filepath.Join(buildPath, fmt.Sprint(icon_name))
+	iconPath := filepath.Join(configPath, fmt.Sprint(icon_name))
 	if !isPng(iconPath) {
 		panic("图标格式错误，非png格式！")
 	} else {
 		logger.LogDebug("icon check ok !")
 	}
-	resEntries, _ := os.ReadDir(filepath.Join(gamePath, "res"))
+	resEntries, _ := os.ReadDir(filepath.Join(gameDirPath, "res"))
 	for _, entry := range resEntries {
 		if strings.HasPrefix(entry.Name(), "mipmap") || strings.HasPrefix(entry.Name(), "drawable") && entry.IsDir() {
-			childs, _ := os.ReadDir(filepath.Join(gamePath, "res", entry.Name()))
+			childs, _ := os.ReadDir(filepath.Join(gameDirPath, "res", entry.Name()))
 			for _, child := range childs {
 				if child.Name() == iconName {
-					utils.Remove(filepath.Join(gamePath, "res", entry.Name(), iconName))
+					utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), iconName))
 				}
 			}
 		}
 	}
-	utils.Copy(filepath.Join(buildPath, fmt.Sprint(icon_name)), filepath.Join(gamePath, "res", iconFolder, iconName), true)
+	utils.Copy(filepath.Join(configPath, fmt.Sprint(icon_name)), filepath.Join(gameDirPath, "res", iconFolder, iconName), true)
 }
 
 func isPng(path string) bool {
@@ -132,8 +132,8 @@ func copyAccessConfig(src string, dst string) {
 /**
  * 替换包名
  */
-func replacePackageName(gamePath, channelId string, logger models.LogCallback) {
-	manifestPath := filepath.Join(gamePath, "AndroidManifest.xml")
+func replacePackageName(gameDirPath, channelId string, logger models.LogCallback) {
+	manifestPath := filepath.Join(gameDirPath, "AndroidManifest.xml")
 	manifestXml := xml.ParseXml(manifestPath)
 	gamePackage := manifestXml.Attribute["package"]
 	logger.LogDebug("包名：", gamePackage)

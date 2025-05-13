@@ -54,7 +54,7 @@ func main() {
 
 	buildPath := filepath.Join(homePath, product+"_"+channelId)
 	gamePath := filepath.Join(homePath, "game_demo.apk")
-	expandPath := filepath.Join(homePath, "channel")
+	//expandPath := filepath.Join(homePath, "channel")
 
 	//remove(buildPath, filepath.Join(homePath, "temp"))
 	utils.Remove(buildPath)
@@ -64,12 +64,10 @@ func main() {
 	preParams := models.PreParams{
 		JavaHome:     javaHome,
 		AndroidHome:  androidHome,
-		BuildPath:    buildPath,
-		Channel:      channel,
+		RootPath:     buildPath,
+		ChannelName:  channel,
 		ChannelId:    channelId,
-		HomePath:     homePath,
-		GamePath:     gamePath,
-		ExpandPath:   expandPath,
+		ApkPath:      gamePath,
 		KeystoreName: keystoreName,
 	}
 	packaging.Execute(&preParams, &ProgressImpl{}, &models.LogImpl{})

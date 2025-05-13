@@ -104,7 +104,7 @@ func DeleteInvalidLibs(gamePath string) {
 }
 
 /**
- * 构建output.apk+R_Hoolai.java -> 替换R_Hoolai.java -> 生成R.class -> 生成R.dex -> 拷贝
+ * 构建output.apk+R_hoolai.java -> 替换R_hoolai.java -> 生成R.class -> 生成R.dex -> 拷贝
  */
 func BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channelId string, logger models.LogCallback) {
 
@@ -143,9 +143,9 @@ func BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channe
 		logger.LogDebug("build R.class success!")
 	}
 
-	rHoolaiJavaPath := filepath.Join(gamePath, "gen", strings.ReplaceAll(packageName, ".", utils.Symbol()), "R_Hoolai.java")
+	rHoolaiJavaPath := filepath.Join(gamePath, "gen", strings.ReplaceAll(packageName, ".", utils.Symbol()), "R_hoolai.java")
 	_ = utils.Copy(rJavaPath, rHoolaiJavaPath, true)
-	utils.ReplaceFile(rHoolaiJavaPath, "final class R", "class R_Hoolai")
+	utils.ReplaceFile(rHoolaiJavaPath, "final class R", "class R_hoolai")
 	utils.ReplaceFile(rHoolaiJavaPath, "final class", "class")
 
 	shellRHoolaiClass := strings.Join([]string{javac, "-encoding UTF-8 -target 1.8 -source 1.8 -bootclasspath", androidJar,
@@ -153,10 +153,10 @@ func BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channe
 	logger.LogDebug("执行命令：" + shellRHoolaiClass)
 	err = utils.ExecuteShell(shellRHoolaiClass)
 	if err != nil {
-		logger.LogDebug("build R_Hoolai.class failed, err: " + err.Error())
-		panic(errors.New("build R_Hoolai.class failed, err: " + err.Error()))
+		logger.LogDebug("build R_hoolai.class failed, err: " + err.Error())
+		panic(errors.New("build R_hoolai.class failed, err: " + err.Error()))
 	} else {
-		logger.LogDebug("build R_Hoolai.class success!")
+		logger.LogDebug("build R_hoolai.class success!")
 	}
 
 	logger.LogDebug("start build dex")
@@ -164,10 +164,10 @@ func BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channe
 	logger.LogDebug("执行命令：" + shellBuildDex)
 	err = utils.ExecuteShell(shellBuildDex)
 	if err != nil {
-		logger.LogDebug("build R_Hoolai.dex failed, err: " + err.Error())
-		panic(errors.New("build R_Hoolai.dex failed, err: " + err.Error()))
+		logger.LogDebug("build R_hoolai.dex failed, err: " + err.Error())
+		panic(errors.New("build R_hoolai.dex failed, err: " + err.Error()))
 	} else {
-		logger.LogDebug("build R_Hoolai.dex success!")
+		logger.LogDebug("build R_hoolai.dex success!")
 	}
 
 	logger.LogDebug("start decode dex")
@@ -176,26 +176,26 @@ func BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gamePath, channe
 	logger.LogDebug("执行命令：" + shellDecodeDex)
 	err = utils.ExecuteShell(shellDecodeDex)
 	if err != nil {
-		logger.LogDebug("decode R_Hoolai.dex failed, err: " + err.Error())
-		panic(errors.New("decode R_Hoolai.dex failed, err: " + err.Error()))
+		logger.LogDebug("decode R_hoolai.dex failed, err: " + err.Error())
+		panic(errors.New("decode R_hoolai.dex failed, err: " + err.Error()))
 	} else {
-		logger.LogDebug("decode R_Hoolai.dex success!")
+		logger.LogDebug("decode R_hoolai.dex success!")
 	}
 
 	err = utils.Move(filepath.Join(genBinPath, "smali"), filepath.Join(gamePath, "smali"), true)
 	if err != nil {
-		logger.LogDebug("move R_Hoolai.smali failed, err: " + err.Error())
-		panic(errors.New("move R_Hoolai.smali failed, err: " + err.Error()))
+		logger.LogDebug("move R_hoolai.smali failed, err: " + err.Error())
+		panic(errors.New("move R_hoolai.smali failed, err: " + err.Error()))
 	} else {
-		logger.LogDebug("move R_Hoolai.smali success!")
+		logger.LogDebug("move R_hoolai.smali success!")
 	}
 }
 
-func CreateApk(gamePath, homePath, java, apktool string, logger models.LogCallback) {
+func CreateApk(gameDirPath, targetPath, java, apktool string, logger models.LogCallback) {
 	logger.LogDebug("开始构建unsigned.apk")
 	buildShell := strings.Join([]string{java, "-Dfile.encoding=utf-8 -jar", apktool, "--frame-path",
-		filepath.Join(homePath, "target"), "b --use-aapt2", gamePath, "-o",
-		filepath.Join(homePath, "target", "unsigned.apk")}, " ")
+		targetPath, "b --use-aapt2", gameDirPath, "-o",
+		filepath.Join(targetPath, "unsigned.apk")}, " ")
 	logger.LogDebug("执行命令：" + buildShell)
 	err := utils.ExecuteShell(buildShell)
 	if err != nil {
@@ -205,29 +205,29 @@ func CreateApk(gamePath, homePath, java, apktool string, logger models.LogCallba
 	}
 }
 
-func SignApk(gamePath, jarsigner, apksigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
+func SignApk(gamePath, configPath, targetPath, outputApkPath, jarsigner, apksigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
 	logger.LogDebug("开始签名")
 
 	signVersion := models.GetServerDynamic(params.ChannelId)[models.SignVersion]
 	if strings.EqualFold(signVersion, "1") {
-		v1Sign(gamePath, jarsigner, zipalign, params, logger)
+		v1Sign(gamePath, targetPath, outputApkPath, jarsigner, zipalign, params, logger)
 	} else {
-		v2Sign(gamePath, apksigner, zipalign, params, logger)
+		v2Sign(gamePath, configPath, targetPath, outputApkPath, apksigner, zipalign, params, logger)
 	}
 }
 
-func v2Sign(gamePath, apksigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
+func v2Sign(gamePath, configPath, targetPath, outputApkPath, apksigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
 	logger.LogDebug("apk开始v2+签名")
-	keyStoreFile := filepath.Join(params.HomePath, params.KeystoreName)
+	keyStoreFile := filepath.Join(configPath, params.KeystoreName)
 	alias := models.GetServerDynamic(params.ChannelId)[models.KeystoreAlias]
 	keyStorePass := models.GetServerDynamic(params.ChannelId)[models.KeystorePass]
 	pass := models.GetServerDynamic(params.ChannelId)[models.KeyPass]
 
-	unSignedApk := filepath.Join(params.HomePath, "target", "unsigned.apk")
-	aligned := filepath.Join(params.HomePath, "target", "aligned.apk")
-	signedAlignApk := filepath.Join(params.HomePath, "target", "signed_aligned.apk")
+	unSignedApk := filepath.Join(targetPath, "unsigned.apk")
+	aligned := filepath.Join(targetPath, "aligned.apk")
+	signedAlignApk := filepath.Join(targetPath, "signed_aligned.apk")
 
-	zipApk(zipalign, unSignedApk, aligned, logger)
+	zipApk(outputApkPath, zipalign, unSignedApk, aligned, logger)
 
 	v2Shell := strings.Join([]string{apksigner, "sign --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled false --v4-signing-enabled false --ks",
 		keyStoreFile, "--ks-key-alias", alias, ("--ks-pass pass:" + keyStorePass), ("--key-pass pass:" + pass), "-out",
@@ -239,18 +239,19 @@ func v2Sign(gamePath, apksigner, zipalign string, params *models.PreParams, logg
 	} else {
 		logger.LogDebug("apk签名成功")
 	}
+	utils.Move(signedAlignApk, outputApkPath, true)
 }
 
-func v1Sign(gamePath, jarsigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
+func v1Sign(gamePath, targetPath, outputApkPath, jarsigner, zipalign string, params *models.PreParams, logger models.LogCallback) {
 	logger.LogDebug("apk开始v1签名")
 	keyStoreFile := filepath.Join(gamePath, params.KeystoreName)
 	alias := models.GetServerDynamic(params.ChannelId)[models.KeystoreAlias]
 	keyStorePass := models.GetServerDynamic(params.ChannelId)[models.KeystorePass]
 	pass := models.GetServerDynamic(params.ChannelId)[models.KeyPass]
 
-	unSignedApk := filepath.Join(params.HomePath, "target", "unsigned.apk")
-	signedApk := filepath.Join(params.HomePath, "target", "signed.apk")
-	signedAlignApk := filepath.Join(params.HomePath, "target", "signed_aligned.apk")
+	unSignedApk := filepath.Join(targetPath, "unsigned.apk")
+	signedApk := filepath.Join(targetPath, "signed.apk")
+	signedAlignApk := filepath.Join(targetPath, "signed_aligned.apk")
 
 	v1Shell := strings.Join([]string{jarsigner, "-verbose -keystore", keyStoreFile, "-storepass", keyStorePass, "-keypass",
 		pass, "-signedjar", signedApk, unSignedApk, alias, "-digestalg SHA1 -sigalg MD5withRSA"}, " ")
@@ -262,10 +263,11 @@ func v1Sign(gamePath, jarsigner, zipalign string, params *models.PreParams, logg
 		logger.LogDebug("apk签名成功")
 	}
 
-	zipApk(zipalign, signedApk, signedAlignApk, logger)
+	zipApk(outputApkPath, zipalign, signedApk, signedAlignApk, logger)
+	utils.Move(signedAlignApk, outputApkPath, true)
 }
 
-func zipApk(zipalign, signedApk, signedAlignApk string, logger models.LogCallback) {
+func zipApk(outputApkPath, zipalign, signedApk, signedAlignApk string, logger models.LogCallback) {
 	logger.LogDebug("apk开始压缩")
 	zipShell := strings.Join([]string{zipalign, "-f 4", signedApk, signedAlignApk}, " ")
 	logger.LogDebug("执行命令：" + zipShell)
