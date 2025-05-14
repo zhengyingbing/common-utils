@@ -159,7 +159,7 @@ func Execute(params *models.PreParams, progress models.ProgressCallback, logger 
 	t2 = time.Now().Unix()
 	logger.LogInfo("apk签名对齐完成，耗时", t2-t1, "秒")
 	progress.Progress(channelId, 100)
-
+	utils2.Remove(buildPath)
 	logger.LogInfo("打包成功！总耗时", t2-t0, "秒")
 
 }
