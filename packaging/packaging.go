@@ -1,6 +1,7 @@
 package packaging
 
 import (
+	_go "changeme/go"
 	"fmt"
 	utils2 "github.com/zhengyingbing/common-utils/common/utils"
 	"github.com/zhengyingbing/common-utils/packaging/models"
@@ -12,34 +13,153 @@ import (
 )
 
 var (
-	rootPath, buildPath, apkPath, outputPath                                                        string
-	productId, channel, channelId                                                                   string
+	rootPath, apkPath, outputPath                                                                   string
+	productId                                                                                       string
 	androidJar, apktool, baksmali, smaliJar, aapt2, apksigner, dx, zipalign, java, javac, jarsigner string
 )
 
-func Execute(params *models.PreParams, progress models.ProgressCallback, logger models.LogCallback) {
-	logger.LogInfo("开始打包")
-	t0 := time.Now().Unix()
+func Preparation(productParam _go.ProductParam, channelParams []_go.ChannelParam, progress models.ProgressCallback, logger models.LogCallback) {
 	//1.初始化
 	logger.LogInfo("开始初始化")
-	initData(params)
+	gameDirPath := filepath.Join(rootPath, "gameDir")
+	apks := []string{"fastsdk", "core"}
+	targetDirs := []string{}
+
+	initData2(productParam)
+
+	for _, param := range channelParams {
+
+		channel := param.ChannelName
+		channelId := param.ChannelId
+
+		progress.Progress(channelId, 5)
+		buildPath := filepath.Join(productParam.RootPath, "build", productId+"_"+channelId) //C:\apktool\build\1-1
+		utils2.Remove(buildPath)
+		if !utils2.Exist(buildPath) {
+			utils2.CreateDir(buildPath)
+		}
+
+		targetDirs = append(targetDirs, buildPath)
+		apks = append(apks, channel)
+	}
+	logger.LogInfo("开始反编译, apks", apks)
+	decodeApk(gameDirPath, apks, logger)
+	logger.LogInfo("开始拷贝源码")
+	CopyApk(gameDirPath, apks, targetDirs)
+
+}
+
+// 拷贝母包、Fast、JNI
+func CopyApk(gameDirPath string, apks, targetDirs []string) error {
+	var wg sync.WaitGroup
+	tm0 := time.Now().Unix()
+	for _, dest := range targetDirs {
+		wg.Add(1)
+		go func(dst string) {
+			defer wg.Done()
+			utils2.Copy(gameDirPath, filepath.Join(dst, "gameDir"), true)
+		}(dest)
+	}
+	go func() {
+		wg.Wait()
+	}()
+	errChan := make(chan error, len(apks)*len(targetDirs))
+	println("母包目录拷贝完成")
+	sem := make(chan struct{}, 32)
+	var wg2 sync.WaitGroup
+	for _, apk := range apks {
+		for _, dir := range targetDirs {
+			wg2.Add(1)
+			sem <- struct{}{}
+			go func(src, destDir string) {
+				defer wg2.Done()
+				defer func() { <-sem }()
+
+				srcPath := filepath.Join("C:\\apktool", "sdk", "expand", src+"Dir")
+				destPath := filepath.Join(destDir, src+"Dir")
+				//if err := fastCopy(srcPath, destPath); err != nil {
+				if err := utils2.Copy(srcPath, destPath, false); err != nil {
+					errChan <- fmt.Errorf("%s -> %s 失败: %v", srcPath, destPath, err)
+					return
+				}
+				println(apk, "目录拷贝完成，用时", time.Now().Unix())
+				errChan <- nil
+			}(apk, dir)
+		}
+	}
+	go func() {
+		wg2.Wait()
+		close(errChan)
+	}()
+	// 检查错误
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+	tm1 := time.Now().Unix()
+	println("拷贝完成，耗时", tm1-tm0, "秒")
+	return nil
+}
+
+func Execute(param *models.PreParams, progress models.ProgressCallback, logger models.LogCallback) {
+	cfg := make(map[string]string)
+
+	cfg[models.IconName] = "ic_launcher.png"
+	cfg[models.TargetSdkVersion] = "30"
+	cfg[models.DexMethodCounters] = "60000"
+	cfg[models.AppName] = param.ProductName
+	cfg[models.Orientation] = "sensorLandscape"
+	cfg[models.SignVersion] = "2"
+	cfg[models.KeystoreAlias] = "aygd3"
+	cfg[models.KeystorePass] = "aygd3123"
+	cfg[models.KeyPass] = "aygd3123"
+
+	if strings.EqualFold(param.ChannelId, "10219") {
+		cfg["appId"] = "614371"
+	} else if strings.EqualFold(param.ChannelId, "10221") {
+		cfg["appId"] = "2882303761520322194"
+		cfg["appKey"] = "5642032276194"
+	}
+
+	cfg[models.BundleId] = param.PackageName
+	models.SetServerDynamic(param.ChannelId, cfg)
+
+	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "access.config"), filepath.Join(param.BuildPath, "access.config"), true)
+	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "ic_launcher.png"), filepath.Join(param.BuildPath, "ic_launcher.png"), true)
+	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "game.keystore"), filepath.Join(param.BuildPath, "game.keystore"), true)
+	//var wg sync.WaitGroup
+	//logger.LogInfo("开始打包")
+	t0 := time.Now().Unix()
+	////1.初始化
+	//logger.LogInfo("开始初始化")
+	//initData(param)
 	t1 := t0
 	t2 := time.Now().Unix()
-	logger.LogInfo("初始化打包环境完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 5)
+	//logger.LogInfo("初始化打包环境完成，耗时", t2-t1, "秒")
+	//progress.Progress(channelId, 5)
+	//
+	//apks := []string{channel, "fastsdk", "core"}
+	////2.反编译
+	//logger.LogInfo("开始反编译apk")
+	//decodeApk(filepath.Join(rootPath, "gameDir"), apks, logger)
+	//t1 = t2
+	//t2 = time.Now().Unix()
+	//logger.LogInfo("反编译完成，耗时", t2-t1, "秒")
+	//progress.Progress(channelId, 10)
+	////3.拷贝
+	//logger.LogInfo("开始拷贝apkDir", buildPath)
+	channelId := param.ChannelId
+	channel := param.ChannelName
+	buildPath := filepath.Join(param.RootPath, "build", productId+"_"+channelId)
 
-	apks := []string{channel, "fastsdk", "core"}
-	//2.反编译
-	logger.LogInfo("开始反编译apk")
-	decodeApk(filepath.Join(rootPath, "gameDir"), apks, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("反编译完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 10)
-	//3.拷贝
-	logger.LogInfo("开始拷贝apkDir", buildPath)
 	gameDirPath := filepath.Join(buildPath, "gameDir")
-	copyApkDirs(gameDirPath, apks, logger)
+	//wg.Add(1)
+	//go func(dst *models.PreParams) {
+	//	defer wg.Done()
+	//	copyApkDirs(gameDirPath, apks, logger)
+	//}(param)
+
 	t1 = t2
 	t2 = time.Now().Unix()
 	logger.LogInfo("资源拷贝完成，耗时", t2-t1, "秒")
@@ -93,8 +213,8 @@ func Execute(params *models.PreParams, progress models.ProgressCallback, logger 
 	utils.DeleteInvalidLibs(gameDirPath)
 	logger.LogDebug("so库处理完成")
 
-	configPath := filepath.Join(rootPath, "config", channelId)
-	utils.ReplaceRes(params, configPath, gameDirPath, logger)
+	configPath := filepath.Join(rootPath, "config", channel)
+	utils.ReplaceRes(param, configPath, gameDirPath, logger)
 	t1 = t2
 	t2 = time.Now().Unix()
 	logger.LogInfo("资源替换，耗时", t2-t1, "秒")
@@ -152,8 +272,9 @@ func Execute(params *models.PreParams, progress models.ProgressCallback, logger 
 	//17.签名对齐
 	logger.LogInfo("开始apk签名对齐处理")
 
-	outputApkPath := filepath.Join(outputPath, params.ApkName+".apk")
-	utils.SignApk(gameDirPath, configPath, targetPath, outputApkPath, jarsigner, apksigner, zipalign, params, logger)
+	outputApkPath := filepath.Join(outputPath, param.ApkName)
+	println("输出的文件名：", outputApkPath)
+	utils.SignApk(gameDirPath, configPath, targetPath, outputApkPath, jarsigner, apksigner, zipalign, param, logger)
 
 	t1 = t2
 	t2 = time.Now().Unix()
@@ -180,7 +301,8 @@ func replaceR(smaliMap map[string]string, channelId string, logger models.LogCal
 
 // 并发执行解包
 func decodeApk(gameDirPath string, apks []string, logger models.LogCallback) {
-
+	println("母包目标目录：", gameDirPath)
+	utils2.Remove(gameDirPath)
 	target := filepath.Join(gameDirPath, "target")
 	shell := java + " -jar " + apktool + " --frame-path " + target + " --advance d %v" + " --only-main-classes -f -o %v"
 
@@ -190,37 +312,40 @@ func decodeApk(gameDirPath string, apks []string, logger models.LogCallback) {
 
 	shell = java + " -jar " + apktool + " --advance d %v" + " --only-main-classes -f -o %v"
 	for _, apk := range apks {
-		apkPath := filepath.Join(rootPath, "sdk", apk+".apk")
-		dirPath := filepath.Join(buildPath, apk+"Dir")
+		sdkPath := filepath.Join(rootPath, "sdk", apk+".apk")
+		dirPath := filepath.Join(rootPath, "sdk", "expand", apk+"Dir")
+		if !utils2.Exist(dirPath) {
+			utils2.CreateDir(dirPath)
+		}
 		wg.Add(1)
-		go decompile(&wg, shell, apkPath, dirPath, logger)
+		go decompile(&wg, shell, sdkPath, dirPath, logger)
 
 	}
 	wg.Wait()
 }
 
-// 并发执行拷贝
-func copyApkDirs(gameDirPath string, apks []string, logger models.LogCallback) {
-	copyWg := sync.WaitGroup{}
-	copyWg.Add(len(apks) + 1) // 所有解包任务 + 母包拷贝
-	// 拷贝母包
-	go func() {
-		defer copyWg.Done()
-		utils2.Copy(filepath.Join(rootPath, "gameDir"), gameDirPath, false)
-		logger.LogDebug("gameDir拷贝完成")
-	}()
-
-	for _, apk := range apks {
-		go func(name string) {
-			defer copyWg.Done()
-			dirPath := filepath.Join(rootPath, "sdk", "expand", name+"Dir")
-			dstPath := filepath.Join(buildPath, name+"Dir")
-			utils2.Copy(dirPath, dstPath, false)
-			logger.LogDebug(name+"Dir", "拷贝完成")
-		}(apk)
-	}
-	copyWg.Wait()
-}
+//// 并发执行拷贝
+//func copyApkDirs(gameDirPath string, apks []string, logger models.LogCallback) {
+//	copyWg := sync.WaitGroup{}
+//	copyWg.Add(len(apks) + 1) // 所有解包任务 + 母包拷贝
+//	// 拷贝母包
+//	go func() {
+//		defer copyWg.Done()
+//		utils2.Copy(filepath.Join(rootPath, "gameDir"), gameDirPath, false)
+//		logger.LogDebug("gameDir拷贝完成")
+//	}()
+//
+//	for _, apk := range apks {
+//		go func(name string) {
+//			defer copyWg.Done()
+//			dirPath := filepath.Join(rootPath, "sdk", "expand", name+"Dir")
+//			dstPath := filepath.Join(buildPath, name+"Dir")
+//			utils2.Copy(dirPath, dstPath, false)
+//			logger.LogDebug(name+"Dir", "拷贝完成")
+//		}(apk)
+//	}
+//	copyWg.Wait()
+//}
 
 func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string, logger models.LogCallback) {
 	defer wg.Done()
@@ -231,49 +356,88 @@ func decompile(wg *sync.WaitGroup, shell string, apkPath string, outPath string,
 	}
 }
 
-func initData(params *models.PreParams) {
-	fmt.Printf("%+v\n", params)
+func initData2(params _go.ProductParam) {
 	productId = params.ProductId
-	channel = params.ChannelName
-	channelId = params.ChannelId
-
 	rootPath = params.RootPath //C:\apktool
 	if !utils2.Exist(rootPath) {
 		utils2.CreateDir(rootPath)
 	}
-	buildPath = filepath.Join(params.RootPath, "build", productId+"_"+channelId) //C:\apktool\build\1-1
-	if !utils2.Exist(buildPath) {
-		utils2.CreateDir(buildPath)
-	}
-	outputPath = params.OutPutPath //C:\apktool\output
+
+	outputPath = params.OutputPath //C:\apktool\output
 	if !utils2.Exist(outputPath) {
 		utils2.CreateDir(outputPath)
 	}
 	apkPath = params.ApkPath
 
-	androidJar = filepath.Join(params.AndroidHome, "libs", "android.jar")
-	apktool = filepath.Join(params.AndroidHome, "libs", "apktool.jar")
-	baksmali = filepath.Join(params.AndroidHome, "libs", "baksmali.jar")
-	smaliJar = filepath.Join(params.AndroidHome, "libs", "smali.jar")
+	androidJar = filepath.Join(params.AndroidPath, "libs", "android.jar")
+	apktool = filepath.Join(params.AndroidPath, "libs", "apktool.jar")
+	baksmali = filepath.Join(params.AndroidPath, "libs", "baksmali.jar")
+	smaliJar = filepath.Join(params.AndroidPath, "libs", "smali.jar")
 
 	if utils2.CurrentOsType() == utils2.WINDOWS {
-		aapt2 = filepath.Join(params.AndroidHome, "windows", "aapt2_64")
-		apksigner = filepath.Join(params.AndroidHome, "windows", "apksigner.bat")
-		dx = filepath.Join(params.AndroidHome, "windows", "dx.bat")
-		zipalign = filepath.Join(params.AndroidHome, "windows", "zipalign.exe")
+		aapt2 = filepath.Join(params.AndroidPath, "windows", "aapt2_64")
+		apksigner = filepath.Join(params.AndroidPath, "windows", "apksigner.bat")
+		dx = filepath.Join(params.AndroidPath, "windows", "dx.bat")
+		zipalign = filepath.Join(params.AndroidPath, "windows", "zipalign.exe")
 
-		java = filepath.Join(params.JavaHome, "win", "jre", "bin", "java")
-		javac = filepath.Join(params.JavaHome, "win", "jre", "bin", "javac")
-		jarsigner = filepath.Join(params.JavaHome, "win", "jre", "bin", "jarsigner.exe")
+		java = filepath.Join(params.JavaPath, "win", "jre", "bin", "java")
+		javac = filepath.Join(params.JavaPath, "win", "jre", "bin", "javac")
+		jarsigner = filepath.Join(params.JavaPath, "win", "jre", "bin", "jarsigner.exe")
 	} else if utils2.CurrentOsType() == utils2.MACOS {
-		aapt2 = filepath.Join(params.AndroidHome, "macos", "aapt2_64")
-		apksigner = filepath.Join(params.AndroidHome, "macos", "apksigner")
-		dx = filepath.Join(params.AndroidHome, "macos", "dx")
-		zipalign = filepath.Join(params.AndroidHome, "macos", "zipalign")
+		aapt2 = filepath.Join(params.AndroidPath, "macos", "aapt2_64")
+		apksigner = filepath.Join(params.AndroidPath, "macos", "apksigner")
+		dx = filepath.Join(params.AndroidPath, "macos", "dx")
+		zipalign = filepath.Join(params.AndroidPath, "macos", "zipalign")
 
 		java = "java"
 		javac = "javac"
 		jarsigner = "jarsigner"
 	}
-
 }
+
+//func initData(params *models.PreParams) {
+//	fmt.Printf("%+v\n", params)
+//	productId = params.ProductId
+//	channel = params.ChannelName
+//	channelId = params.ChannelId
+//
+//	rootPath = params.RootPath //C:\apktool
+//	if !utils2.Exist(rootPath) {
+//		utils2.CreateDir(rootPath)
+//	}
+//	buildPath = filepath.Join(params.RootPath, "build", productId+"_"+channelId) //C:\apktool\build\1-1
+//	if !utils2.Exist(buildPath) {
+//		utils2.CreateDir(buildPath)
+//	}
+//	outputPath = params.OutPutPath //C:\apktool\output
+//	if !utils2.Exist(outputPath) {
+//		utils2.CreateDir(outputPath)
+//	}
+//	apkPath = params.ApkPath
+//
+//	androidJar = filepath.Join(params.AndroidHome, "libs", "android.jar")
+//	apktool = filepath.Join(params.AndroidHome, "libs", "apktool.jar")
+//	baksmali = filepath.Join(params.AndroidHome, "libs", "baksmali.jar")
+//	smaliJar = filepath.Join(params.AndroidHome, "libs", "smali.jar")
+//
+//	if utils2.CurrentOsType() == utils2.WINDOWS {
+//		aapt2 = filepath.Join(params.AndroidHome, "windows", "aapt2_64")
+//		apksigner = filepath.Join(params.AndroidHome, "windows", "apksigner.bat")
+//		dx = filepath.Join(params.AndroidHome, "windows", "dx.bat")
+//		zipalign = filepath.Join(params.AndroidHome, "windows", "zipalign.exe")
+//
+//		java = filepath.Join(params.JavaHome, "win", "jre", "bin", "java")
+//		javac = filepath.Join(params.JavaHome, "win", "jre", "bin", "javac")
+//		jarsigner = filepath.Join(params.JavaHome, "win", "jre", "bin", "jarsigner.exe")
+//	} else if utils2.CurrentOsType() == utils2.MACOS {
+//		aapt2 = filepath.Join(params.AndroidHome, "macos", "aapt2_64")
+//		apksigner = filepath.Join(params.AndroidHome, "macos", "apksigner")
+//		dx = filepath.Join(params.AndroidHome, "macos", "dx")
+//		zipalign = filepath.Join(params.AndroidHome, "macos", "zipalign")
+//
+//		java = "java"
+//		javac = "javac"
+//		jarsigner = "jarsigner"
+//	}
+//
+//}

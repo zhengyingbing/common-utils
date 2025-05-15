@@ -100,7 +100,9 @@ func copyFile(src, dst string, isForced bool) error {
 		if err != nil {
 			return fmt.Errorf("can't %v", err)
 		}
-
+		// 使用32KB的缓冲区提高性能
+		//buf := make([]byte, 32*1024)
+		//_, err = io.CopyBuffer(dstFile, srcFile, buf)
 		_, err = io.Copy(dstFile, srcFile)
 		if err != nil {
 			return fmt.Errorf("can't Copy %v", err)

@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"bufio"
+	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
+	"strings"
 )
 
 /**
@@ -43,6 +46,47 @@ func MergeYaml(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, marshal, os.ModePerm)
+}
+
+// 替换版本号
+func ReplaceStringYaml(src, minSdkVersion, targetSdkVersion string) error {
+
+	file, err := os.Open(src)
+	if err != nil {
+		fmt.Printf("无法打开文件: %v\n", err)
+		return err
+	}
+	scanner := bufio.NewScanner(file)
+	var lines []string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "minSdkVersion") {
+			v := strings.Split(line, ":")[1]
+			newLine := strings.Replace(line, v, " '"+minSdkVersion+"'", -1)
+			lines = append(lines, newLine)
+		} else if strings.Contains(line, "targetSdkVersion") {
+			v := strings.Split(line, ":")[1]
+			newLine := strings.Replace(line, v, " '"+targetSdkVersion+"'", -1)
+			lines = append(lines, newLine)
+		} else {
+			lines = append(lines, line)
+		}
+	}
+
+	output, _ := os.Create(src)
+	defer output.Close()
+	writer := bufio.NewWriter(output)
+	for _, line := range lines {
+		_, err = writer.WriteString(line + "\n")
+		if err != nil {
+			fmt.Printf("写入文件错误: %v\n", err)
+			return err
+		}
+	}
+
+	writer.Flush()
+	return nil
 }
 
 func readYaml[T any](yamlPath string) (T, error) {

@@ -18,9 +18,16 @@ import (
 func ReplaceRes(params *models.PreParams, configPath, gameDirPath string, logger models.LogCallback) {
 	copyAccessConfig(filepath.Join(configPath, "access.config"), filepath.Join(gameDirPath, "assets", "access.config"))
 	replacePackageName(gameDirPath, params.ChannelId, logger)
+	replaceYaml(gameDirPath, params.ChannelId)
 	replaceIconAndAppName(configPath, gameDirPath, params.ChannelId, logger)
 	replaceDynamicConfig(gameDirPath, params.ChannelId, logger)
 	replaceGoogleService()
+}
+
+func replaceYaml(gameDirPath, channelId string) {
+	minSdkVersion := "21"
+	targetSdkVersion := models.GetServerDynamic(channelId)[models.TargetSdkVersion]
+	ReplaceStringYaml(filepath.Join(gameDirPath, "apktool.yml"), minSdkVersion, targetSdkVersion)
 }
 
 func replaceGoogleService() {
@@ -47,20 +54,15 @@ func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger mod
 	_, tag := FindTag(manifestXml.ChildTags, "application", "")
 	app_name := models.GetServerDynamic(channelId)[models.AppName]
 	icon_name := models.GetServerDynamic(channelId)[models.IconName]
-	iconFolder := ""
 	iconName := ""
+	roundIconName := ""
 	appName := ""
 	for k, v := range tag.Attribute {
 		if k == "android:icon" {
-			//@mipmap/icon_app
-			if strings.Contains(v, "mipmap") {
-				iconFolder = "mipmap-xxhdpi"
-			} else {
-				iconFolder = "drawable-xxhdpi"
-			}
 			iconName = v
 			//注意加上后缀
 			iconName = strings.Split(iconName, "/")[1] + ".png"
+			roundIconName = strings.Split(iconName, "/")[1] + "_round.png"
 			continue
 		}
 		if k == "android:label" {
@@ -78,6 +80,7 @@ func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger mod
 	xml.Serializer(valuesXml, xml.XmlHeaderType, valuesPath)
 
 	iconPath := filepath.Join(configPath, fmt.Sprint(icon_name))
+	println("图标路径：", iconPath)
 	if !isPng(iconPath) {
 		panic("图标格式错误，非png格式！")
 	} else {
@@ -88,16 +91,19 @@ func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger mod
 		if strings.HasPrefix(entry.Name(), "mipmap") || strings.HasPrefix(entry.Name(), "drawable") && entry.IsDir() {
 			childs, _ := os.ReadDir(filepath.Join(gameDirPath, "res", entry.Name()))
 			for _, child := range childs {
-				if child.Name() == iconName {
+				if child.Name() == roundIconName {
+					utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), roundIconName))
+				} else if child.Name() == iconName {
 					utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), iconName))
+					utils.Copy(iconPath, filepath.Join(gameDirPath, "res", entry.Name(), iconName), true)
 				}
 			}
 		}
 	}
-	utils.Copy(filepath.Join(configPath, fmt.Sprint(icon_name)), filepath.Join(gameDirPath, "res", iconFolder, iconName), true)
 }
 
 func isPng(path string) bool {
+	println("图标路径：", path)
 	file, err := os.Open(path)
 	if err != nil {
 		return false

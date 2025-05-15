@@ -227,7 +227,7 @@ func v2Sign(gamePath, configPath, targetPath, outputApkPath, apksigner, zipalign
 	aligned := filepath.Join(targetPath, "aligned.apk")
 	signedAlignApk := filepath.Join(targetPath, "signed_aligned.apk")
 
-	zipApk(outputApkPath, zipalign, unSignedApk, aligned, logger)
+	zipApk(zipalign, unSignedApk, aligned, logger)
 
 	v2Shell := strings.Join([]string{apksigner, "sign --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled false --v4-signing-enabled false --ks",
 		keyStoreFile, "--ks-key-alias", alias, ("--ks-pass pass:" + keyStorePass), ("--key-pass pass:" + pass), "-out",
@@ -263,11 +263,11 @@ func v1Sign(gamePath, targetPath, outputApkPath, jarsigner, zipalign string, par
 		logger.LogDebug("apk签名成功")
 	}
 
-	zipApk(outputApkPath, zipalign, signedApk, signedAlignApk, logger)
+	zipApk(zipalign, signedApk, signedAlignApk, logger)
 	utils.Move(signedAlignApk, outputApkPath, true)
 }
 
-func zipApk(outputApkPath, zipalign, signedApk, signedAlignApk string, logger models.LogCallback) {
+func zipApk(zipalign, signedApk, signedAlignApk string, logger models.LogCallback) {
 	logger.LogDebug("apk开始压缩")
 	zipShell := strings.Join([]string{zipalign, "-f 4", signedApk, signedAlignApk}, " ")
 	logger.LogDebug("执行命令：" + zipShell)
