@@ -18,46 +18,58 @@ var (
 	androidJar, apktool, baksmali, smaliJar, aapt2, apksigner, dx, zipalign, java, javac, jarsigner string
 )
 
+var logManager *utils.LogManager
+
 func Preparation(productParam _go.ProductParam, channelParams []_go.ChannelParam, progress models.ProgressCallback, logger models.LogCallback) {
+	logManager = utils.NewLogManager(filepath.Join(productParam.RootPath, "logs"))
+	defer logManager.Shutdown()
+	logManager.StartFlusher(2 * time.Second)
 	//1.初始化
 	logger.LogInfo("开始初始化")
 	gameDirPath := filepath.Join(rootPath, "gameDir")
 	apks := []string{"fastsdk", "core"}
-	targetDirs := []string{}
+	targetDirs := map[string]string{}
 
 	initData2(productParam)
 
 	for _, param := range channelParams {
-
 		channel := param.ChannelName
 		channelId := param.ChannelId
-
-		progress.Progress(channelId, 5)
+		logManager.GetLogger(channelId).WriteLog("打包环境初始化成功！")
+		logManager.GetLogger(channelId).WriteLog("产品参数：" + utils2.Struct2EscapeJson(productParam, false))
 		buildPath := filepath.Join(productParam.RootPath, "build", productId+"_"+channelId) //C:\apktool\build\1-1
 		utils2.Remove(buildPath)
 		if !utils2.Exist(buildPath) {
 			utils2.CreateDir(buildPath)
 		}
-
-		targetDirs = append(targetDirs, buildPath)
+		targetDirs[channelId] = buildPath
 		apks = append(apks, channel)
+		progress.Progress(param.ChannelId, 3)
+		logManager.GetLogger(channelId).WriteLog("编译目录创建完成，进度完成4%")
 	}
 	logger.LogInfo("开始反编译, apks", apks)
 	decodeApk(gameDirPath, apks, logger)
+	for _, param := range channelParams {
+		logManager.GetLogger(param.ChannelId).WriteLog("apk包反编译完成，进度完成6%")
+		progress.Progress(param.ChannelId, 5)
+	}
+
 	logger.LogInfo("开始拷贝源码")
-	CopyApk(gameDirPath, apks, targetDirs)
+	CopyApk(gameDirPath, apks, targetDirs, progress)
 
 }
 
 // 拷贝母包、Fast、JNI
-func CopyApk(gameDirPath string, apks, targetDirs []string) error {
+func CopyApk(gameDirPath string, apks []string, targetDirs map[string]string, progress models.ProgressCallback) error {
 	var wg sync.WaitGroup
 	tm0 := time.Now().Unix()
-	for _, dest := range targetDirs {
+	for key, dest := range targetDirs {
 		wg.Add(1)
 		go func(dst string) {
 			defer wg.Done()
 			utils2.Copy(gameDirPath, filepath.Join(dst, "gameDir"), true)
+			logManager.GetLogger(key).WriteLog("母包源码拷贝完成，进度完成10%")
+			progress.Progress(key, 10)
 		}(dest)
 	}
 	go func() {
@@ -65,10 +77,13 @@ func CopyApk(gameDirPath string, apks, targetDirs []string) error {
 	}()
 	errChan := make(chan error, len(apks)*len(targetDirs))
 	println("母包目录拷贝完成")
+
 	sem := make(chan struct{}, 32)
 	var wg2 sync.WaitGroup
+	var completedNum = 1
+	var totalNum = len(apks)
 	for _, apk := range apks {
-		for _, dir := range targetDirs {
+		for key, dir := range targetDirs {
 			wg2.Add(1)
 			sem <- struct{}{}
 			go func(src, destDir string) {
@@ -82,10 +97,12 @@ func CopyApk(gameDirPath string, apks, targetDirs []string) error {
 					errChan <- fmt.Errorf("%s -> %s 失败: %v", srcPath, destPath, err)
 					return
 				}
-				println(apk, "目录拷贝完成，用时", time.Now().Unix())
+				progress.Progress(key, completedNum/totalNum*15)
+				logManager.GetLogger(key).WriteLog(fmt.Sprintf("%s%s%d%s", apk, "源码拷贝完成，进度完成", completedNum/totalNum*15, "%"))
 				errChan <- nil
 			}(apk, dir)
 		}
+		completedNum = completedNum + 1
 	}
 	go func() {
 		wg2.Wait()
@@ -124,150 +141,125 @@ func Execute(param *models.PreParams, progress models.ProgressCallback, logger m
 
 	cfg[models.BundleId] = param.PackageName
 	models.SetServerDynamic(param.ChannelId, cfg)
-
+	logManager.GetLogger(param.ChannelId).WriteLog("渠道参数准备完成！")
+	logManager.GetLogger(param.ChannelId).WriteLog("渠道参数：" + utils2.Struct2EscapeJson(param, false))
 	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "access.config"), filepath.Join(param.BuildPath, "access.config"), true)
+	logManager.GetLogger(param.ChannelId).WriteLog("access.config拷贝完成")
 	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "ic_launcher.png"), filepath.Join(param.BuildPath, "ic_launcher.png"), true)
+	logManager.GetLogger(param.ChannelId).WriteLog("应用icon拷贝完成")
 	utils2.Copy(filepath.Join(rootPath, "config", param.ChannelId, "game.keystore"), filepath.Join(param.BuildPath, "game.keystore"), true)
-	//var wg sync.WaitGroup
-	//logger.LogInfo("开始打包")
-	t0 := time.Now().Unix()
-	////1.初始化
-	//logger.LogInfo("开始初始化")
-	//initData(param)
-	t1 := t0
-	t2 := time.Now().Unix()
-	//logger.LogInfo("初始化打包环境完成，耗时", t2-t1, "秒")
-	//progress.Progress(channelId, 5)
-	//
-	//apks := []string{channel, "fastsdk", "core"}
-	////2.反编译
-	//logger.LogInfo("开始反编译apk")
-	//decodeApk(filepath.Join(rootPath, "gameDir"), apks, logger)
-	//t1 = t2
-	//t2 = time.Now().Unix()
-	//logger.LogInfo("反编译完成，耗时", t2-t1, "秒")
-	//progress.Progress(channelId, 10)
-	////3.拷贝
-	//logger.LogInfo("开始拷贝apkDir", buildPath)
+	logManager.GetLogger(param.ChannelId).WriteLog("签名文件拷贝完成")
+
 	channelId := param.ChannelId
 	channel := param.ChannelName
 	buildPath := filepath.Join(param.RootPath, "build", productId+"_"+channelId)
 
 	gameDirPath := filepath.Join(buildPath, "gameDir")
-	//wg.Add(1)
-	//go func(dst *models.PreParams) {
-	//	defer wg.Done()
-	//	copyApkDirs(gameDirPath, apks, logger)
-	//}(param)
 
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("资源拷贝完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 20)
+	logger.LogInfo("资源拷贝完成")
+	//progress.Progress(channelId, 20)
 
 	//4.将母包smali2之后的文件合并到主smali中
 	logger.LogInfo("开始母包smali合并")
 	utils.MergeSmaliFiles(gameDirPath)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("母包smali合并完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 25)
+
+	logger.LogInfo("母包smali合并完成")
+	logManager.GetLogger(param.ChannelId).WriteLog("母包smali合并完成，打包完成30%")
+	progress.Progress(channelId, 30)
 
 	//5.修复母包attrs
 	logger.LogInfo("开始修复母包attrs")
 	utils.RepairGameStyleable(gameDirPath, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("母包attrs修复完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 30)
+
+	logger.LogInfo("母包attrs修复完成")
+	progress.Progress(channelId, 35)
+	logManager.GetLogger(param.ChannelId).WriteLog("母包attrs修复完成，打包完成35%")
 
 	//6.渠道合并，母包优先级高
 	logger.LogInfo("开始包合并处理")
 	utils.MergeApkDir(buildPath, channel, gameDirPath, "", logger)
 	logger.LogDebug("渠道包合并完成")
-	progress.Progress(channelId, 35)
-
+	progress.Progress(channelId, 40)
+	logManager.GetLogger(param.ChannelId).WriteLog("渠道包合并完成，打包完成40%")
 	//7.fastsdk合并，fastsdk优先级高
 	//logger.LogDebug("开始fastsdk合并")
 	utils.MergeApkDir(buildPath, "fastsdk", gameDirPath, "smali,assets,lib,manifest", logger)
 	logger.LogDebug("fastsdk合并完成")
-	progress.Progress(channelId, 40)
-
+	progress.Progress(channelId, 45)
+	logManager.GetLogger(param.ChannelId).WriteLog("fastsdk合并完成，打包完成45%")
 	//8.jni合并，lib和smali是jni优先级高
 	//logger.LogDebug("开始jni合并")
 	utils.MergeApkDir(buildPath, "core", gameDirPath, "smali,lib", logger)
-
 	logger.LogDebug("jni合并完成")
+	logManager.GetLogger(param.ChannelId).WriteLog("jni合并完成，打包完成50%")
 	//9.插件包合并
 	logger.LogDebug("插件包合并完成")
-	progress.Progress(channelId, 45)
 
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("包合并完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 50)
+	logger.LogInfo("包合并完成")
+	progress.Progress(channelId, 55)
+	logManager.GetLogger(param.ChannelId).WriteLog("插件包合并完成，打包完成55%")
 
 	//10.资源替换
 	logger.LogInfo("开始资源替换")
 	//删除未兼容全部架构的动态库
 	utils.DeleteInvalidLibs(gameDirPath)
 	logger.LogDebug("so库处理完成")
+	progress.Progress(channelId, 60)
+	logManager.GetLogger(param.ChannelId).WriteLog("so库处理完成，打包完成55%")
 
 	configPath := filepath.Join(rootPath, "config", channel)
 	utils.ReplaceRes(param, configPath, gameDirPath, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("资源替换，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 60)
+
+	logger.LogInfo("资源替换")
+	progress.Progress(channelId, 65)
+	logManager.GetLogger(param.ChannelId).WriteLog("资源替换完成，打包完成65%")
 
 	//11.res构建
 	logger.LogInfo("开始res.zip构建")
 	utils.BuildRes(aapt2, gameDirPath, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("res.zip构建，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 70)
 
+	logger.LogInfo("res.zip构建完成")
+	progress.Progress(channelId, 70)
+	logManager.GetLogger(param.ChannelId).WriteLog("res.zip构建完成，打包完成70%")
 	//12.R文件构建
 	logger.LogInfo("开始R文件构建")
 	utils.BuildRHoolai(aapt2, androidJar, javac, dx, java, baksmali, gameDirPath, channelId, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("R文件构建完成，耗时", t2-t1, "秒")
+
+	logger.LogInfo("R文件构建完成")
 	progress.Progress(channelId, 75)
+	logManager.GetLogger(param.ChannelId).WriteLog("R文件构建完成，打包完成75%")
 
 	//13.分包
 	logger.LogInfo("开始smali分包")
 	smaliMap := utils.SmaliMap(gameDirPath, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("smali分包完成，耗时", t2-t1, "秒")
-	progress.Progress(channelId, 80)
 
+	logger.LogInfo("smali分包完成")
+	progress.Progress(channelId, 80)
+	logManager.GetLogger(param.ChannelId).WriteLog("smali分包完成，打包完成80%")
 	//14.R文件处理
 	logger.LogInfo("开始R文件处理")
 	replaceR(smaliMap, channelId, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("R文件处理完成，耗时", t2-t1, "秒")
+
+	logger.LogInfo("R文件处理完成")
 	progress.Progress(channelId, 85)
+	logManager.GetLogger(param.ChannelId).WriteLog("R文件处理完成，打包完成85%")
 
 	//15.dex构建
 	logger.LogInfo("开始dex构建")
 	utils.BuildDex(java, smaliJar, gameDirPath, channelId, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("dex构建完成，耗时", t2-t1, "秒")
+
+	logger.LogInfo("dex构建完成")
 	progress.Progress(channelId, 90)
+	logManager.GetLogger(param.ChannelId).WriteLog("dex构建完成，打包完成90%")
 
 	targetPath := filepath.Join(buildPath, "target")
 	//16.apk构建
 	logger.LogInfo("开始apk构建")
 	utils.CreateApk(gameDirPath, targetPath, java, apktool, logger)
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("apk构建完成，耗时", t2-t1, "秒")
+
+	logger.LogInfo("apk构建完成")
 	progress.Progress(channelId, 95)
+	logManager.GetLogger(param.ChannelId).WriteLog("apk构建完成，打包完成95%")
 
 	//17.签名对齐
 	logger.LogInfo("开始apk签名对齐处理")
@@ -276,13 +268,12 @@ func Execute(param *models.PreParams, progress models.ProgressCallback, logger m
 	println("输出的文件名：", outputApkPath)
 	utils.SignApk(gameDirPath, configPath, targetPath, outputApkPath, jarsigner, apksigner, zipalign, param, logger)
 
-	t1 = t2
-	t2 = time.Now().Unix()
-	logger.LogInfo("apk签名对齐完成，耗时", t2-t1, "秒")
+	logger.LogInfo("apk签名对齐完成")
+	logManager.GetLogger(param.ChannelId).WriteLog("apk签名对齐完成，打包完成100%")
 	progress.Progress(channelId, 100)
 	utils2.Remove(buildPath)
-	logger.LogInfo("打包成功！总耗时", t2-t0, "秒")
-
+	logger.LogInfo("恭喜你打包成功！")
+	logManager.GetLogger(param.ChannelId).WriteLog("打包成功！")
 }
 
 func replaceR(smaliMap map[string]string, channelId string, logger models.LogCallback) {

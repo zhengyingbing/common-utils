@@ -55,14 +55,14 @@ func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger mod
 	app_name := models.GetServerDynamic(channelId)[models.AppName]
 	icon_name := models.GetServerDynamic(channelId)[models.IconName]
 	iconName := ""
-	roundIconName := ""
+	//roundIconName := ""
 	appName := ""
 	for k, v := range tag.Attribute {
 		if k == "android:icon" {
 			iconName = v
 			//注意加上后缀
 			iconName = strings.Split(iconName, "/")[1] + ".png"
-			roundIconName = strings.Split(iconName, "/")[1] + "_round.png"
+			//roundIconName = strings.Split(iconName, "/")[1] + "_round.png"
 			continue
 		}
 		if k == "android:label" {
@@ -91,12 +91,16 @@ func replaceIconAndAppName(configPath, gameDirPath, channelId string, logger mod
 		if strings.HasPrefix(entry.Name(), "mipmap") || strings.HasPrefix(entry.Name(), "drawable") && entry.IsDir() {
 			childs, _ := os.ReadDir(filepath.Join(gameDirPath, "res", entry.Name()))
 			for _, child := range childs {
-				if child.Name() == roundIconName {
-					utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), roundIconName))
-				} else if child.Name() == iconName {
+				//if child.Name() == roundIconName {
+				//	utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), roundIconName))
+				//} else if child.Name() == iconName {
+				//
+				//}
+				if child.Name() == iconName {
 					utils.Remove(filepath.Join(gameDirPath, "res", entry.Name(), iconName))
 					utils.Copy(iconPath, filepath.Join(gameDirPath, "res", entry.Name(), iconName), true)
 				}
+
 			}
 		}
 	}
