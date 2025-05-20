@@ -30,6 +30,9 @@ func IsDir(path string) bool {
  */
 
 func CreateDir(path string) error {
+	if Exist(path) {
+		Remove(path)
+	}
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
 		return err
 	}

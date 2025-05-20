@@ -1,13 +1,15 @@
-//go:build test
-
 // test.go
 package main
 
 import (
+	"fmt"
+	"github.com/zhengyingbing/common-utils/common/utils"
+	"log"
 	"os"
-	utils2 "sdk.wdyxgames.com/gitlab/platform-project/package/package-core/common/utils"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/models"
-	"sdk.wdyxgames.com/gitlab/platform-project/package/package-core/packaging/utils"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
 )
 
 const (
@@ -16,131 +18,123 @@ const (
 )
 
 func main() {
-	gamePath := "C:\\Users\\zheng\\Desktop\\9\\gameDir"
-	//pPath := "C:\\Users\\zheng\\Desktop\\9\\hoolaiDir"
-	utils.MergeSmaliFiles(gamePath)
-	utils.GameRepairStyleable(gamePath, models.LogImpl{})
-	//utils.RebuildPluginStyleable(pPath, "hoolai", gamePath, models.LogImpl{})
-	//remove2()
-	//newAttrsPath := "C:\\Users\\zheng\\Desktop\\9\\values_attrs.xml"
-	//
-	//
-	//styleablePath := "C:\\Users\\zheng\\Desktop\\9\\R$styleable.smali"
-	//publicPath := "C:\\Users\\zheng\\Desktop\\9\\public.xml"
-	//attrsPath := "C:\\Users\\zheng\\Desktop\\9\\attrs.xml"
-	////attrsPath := "C:\\apktool\\home\\gameDir\\res\\values\\attrs.xml"
-	//publicXml := xml.ParseXml(publicPath)
-	//attrsXml := xml.ParseXml(attrsPath)
-	//parseSmali := smali.ParseSmali(styleablePath)
-	//tag := xml.Tag{
-	//	Name:      "resources",
-	//	Attribute: nil,
-	//	ChildTags: make([]*xml.Tag, 0),
-	//}
-	//
-	//for _, item := range parseSmali {
-	//	parentTag := xml.Tag{
-	//		Name:      "declare-styleable",
-	//		Attribute: map[string]string{"name": item.Name},
-	//		ChildTags: make([]*xml.Tag, 0),
-	//		Parent:    nil,
-	//	}
-	//	tag.ChildTags = append(tag.ChildTags, &parentTag)
-	//	for k, v := range item.Children {
-	//		findSingleTag := utils.FindSingleTag(publicXml.ChildTags, "public", "id", v)
-	//		attribute := make(map[string]string)
-	//		childTag := make([]*xml.Tag, 0)
-	//		if findSingleTag == nil {
-	//			attribute["name"] = strings.ReplaceAll(k, item.Name+"_android_", "android:")
-	//			if strings.HasPrefix(k, "android_lStar") {
-	//				attribute["name"] = strings.ReplaceAll(k, item.Name+"_android_", "")
-	//			} else if strings.HasPrefix(k, "ColorStateListItem_alpha") {
-	//				attribute["name"] = strings.ReplaceAll(k, item.Name+"_", "")
-	//			} else {
-	//				attribute["name"] = strings.ReplaceAll(k, item.Name+"_android_", "android:")
-	//			}
-	//
-	//		} else {
-	//			k = findSingleTag.Attribute["name"]
-	//			v = findSingleTag.Attribute["type"]
-	//			if v == "attr" {
-	//				attrTag := utils.FindSingleTag(attrsXml.ChildTags, "attr", "name", k)
-	//				if attrTag.ChildTags != nil && len(attrTag.ChildTags) != 0 {
-	//
-	//					for _, item2 := range attrTag.ChildTags {
-	//						attribute2 := make(map[string]string)
-	//						attribute2["name"] = item2.Attribute["name"]
-	//						attribute2["value"] = item2.Attribute["value"]
-	//						tag3 := xml.Tag{
-	//							Name:      item2.Name,
-	//							Attribute: attribute2,
-	//							ChildTags: make([]*xml.Tag, 0),
-	//						}
-	//						childTag = append(childTag, &tag3)
-	//					}
-	//				} else {
-	//					attribute["format"] = attrTag.Attribute["format"]
-	//				}
-	//			}
-	//			attribute["name"] = k
-	//
-	//		}
-	//		parentTag.ChildTags = append(parentTag.ChildTags, &xml.Tag{
-	//			Name:      "attr",
-	//			Attribute: attribute,
-	//			ChildTags: childTag,
-	//			Parent:    nil,
-	//		})
-	//	}
-	//}
-	//xml.Serializer(tag, xml.XmlHeaderType, newAttrsPath)
 
-	//gamePath := "C:\\apktool\\home\\3015_10302"
-	//preParams := models2.PreParams{
-	//	Channel:      "douyin",
-	//	ChannelId:    "10302",
-	//	GamePath:     gamePath,
-	//	KeystoreName: "aygd.keystore",
-	//}
-	//cfg := make(map[string]string)
-	//cfg[models2.AppName] = "douyin" + "Demo"
-	//cfg[models2.IconName] = "ic_launcher.png"
-	//cfg[models2.TargetSdkVersion] = "30"
-	//cfg[models2.DexMethodCounters] = "60000"
-	//cfg[models2.BundleId] = "com.hoolai.sf3.bytedance.gamecenter"
-	//cfg[models2.SignVersion] = "2"
-	//cfg[models2.KeystoreAlias] = "aygd3"
-	//cfg[models2.KeystorePass] = "aygd3123"
-	//cfg[models2.KeyPass] = "aygd3123"
-	//cfg["appId"] = "614371"
-	//models2.SetServerDynamic("10302", cfg)
-	//jarsigner := filepath.Join("C:\\apktool\\resources\\java", "win", "jre", "bin", "jarsigner.exe")
-	//apksigner := filepath.Join("C:\\apktool\\resources\\android", "windows", "apksigner.bat")
-	//zipalign := filepath.Join("C:\\apktool\\resources\\android", "windows", "zipalign.exe")
-	//utils2.SignApk(gamePath, jarsigner, apksigner, zipalign, &preParams, &models2.LogImpl{})
-}
-
-type LoginCallback interface {
-	OnSuccess(uid, token string)
-	onFailed(err string)
-}
-
-type HandleLogin struct{}
-
-func (h HandleLogin) OnSuccess(uid, token string) {
+	//productParam := []string{"1", "2", "channelId", "channelName", "4", "5"}
+	//apkName := strings.Join(productParam, "_")
+	//apkName = strings.Replace(apkName, "channelId", "10010", -1)
+	//apkName = strings.Replace(apkName, "channelName", "hoolai", -1) + ".apk"
+	//println("名字：" + apkName)
+	//p := "C:\\apktool\\gameDir"
+	//utils.Remove("C:\\apktool\\build\\2")
+	apks := []string{"C:\\apktool\\gameDir", "C:\\apktool\\sdk\\expand\\coreDir", "C:\\apktool\\sdk\\expand\\fastsdkDir", "C:\\apktool\\sdk\\expand\\hoolaiDir", "C:\\apktool\\sdk\\expand\\xiaomiDir"}
+	//targetDirs := map[string]string{"1": "C:\\apktool\\build\\1", "2": "C:\\apktool\\build\\2", "3": "C:\\apktool\\build\\3"}
+	channels := []string{"C:\\apktool\\build\\1", "C:\\apktool\\build\\2", "C:\\apktool\\build\\3"}
+	utils.Remove("C:\\apktool\\build\\1")
+	utils.Remove("C:\\apktool\\build\\2")
+	utils.Remove("C:\\apktool\\build\\3")
+	os.MkdirAll("C:\\apktool\\build\\1", 0755)
+	os.MkdirAll("C:\\apktool\\build\\2", 0755)
+	os.MkdirAll("C:\\apktool\\build\\3", 0755)
+	CopyPlugins(channels, apks)
 
 }
+func CopyPlugins(channels []string, apks []string) error {
+	taskQueue := make(chan CopyTask, len(channels)*len(apks))
 
-func remove2() error {
-	src := "C:\\apktool\\home\\1_1"
-	dst := "C:\\apktool\\tt3"
-	err := os.Rename(src, dst)
-	go func() {
-		err = utils2.Remove(dst)
-	}()
-	if err != nil {
-		println("删除失败", err.Error())
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.NumCPU()*2; i++ {
+		wg.Add(1)
+		go copyWorker(taskQueue, &wg)
 	}
-
+	for _, channel := range channels {
+		for _, plugin := range apks {
+			taskQueue <- CopyTask{
+				//ChannelId: channel,
+				SrcPath: plugin,
+				DstPath: channel,
+			}
+		}
+	}
+	close(taskQueue)
+	wg.Wait()
 	return nil
+}
+func CopyApk(gameDirPath string, apks []string, targetDirs map[string]string) error {
+	var wg sync.WaitGroup
+	tm0 := time.Now().Unix()
+	for _, dest := range targetDirs {
+		wg.Add(1)
+		go func(dst string) {
+			defer wg.Done()
+			utils.Copy(gameDirPath, filepath.Join(dst, "gameDir"), true)
+		}(dest)
+	}
+	go func() {
+		wg.Wait()
+	}()
+	errChan := make(chan error, len(apks)*len(targetDirs))
+	println("母包目录拷贝完成")
+
+	sem := make(chan struct{}, 32)
+	var wg2 sync.WaitGroup
+	for _, apk := range apks {
+		for _, dir := range targetDirs {
+			wg2.Add(1)
+			sem <- struct{}{}
+			go func(src, destDir string) {
+				defer wg2.Done()
+				defer func() { <-sem }()
+
+				srcPath := filepath.Join("C:\\apktool", "sdk", "expand", src+"Dir")
+				destPath := filepath.Join(destDir, src+"Dir")
+				//if err := fastCopy(srcPath, destPath); err != nil {
+				if err := utils.Copy(srcPath, destPath, false); err != nil {
+					errChan <- fmt.Errorf("%s -> %s 失败: %v", srcPath, destPath, err)
+					return
+				}
+				errChan <- nil
+			}(apk, dir)
+		}
+	}
+	go func() {
+		wg2.Wait()
+		close(errChan)
+	}()
+	// 检查错误
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+	tm1 := time.Now().Unix()
+	println("拷贝完成，耗时", tm1-tm0, "秒")
+	return nil
+}
+
+type CopyTask struct {
+	//ChannelId string
+	SrcPath string
+	DstPath string
+}
+
+func copyWorker(queue chan CopyTask, s *sync.WaitGroup) {
+	defer s.Done()
+	for task := range queue {
+		start := time.Now()
+		copyPlugin(task)
+		log.Printf("拷贝完成, %s, %s, %v", task.SrcPath, task.DstPath, time.Since(start))
+	}
+}
+
+func copyPlugin(task CopyTask) {
+	dst0 := filepath.Join(task.DstPath, filepath.Base(task.SrcPath))
+	os.MkdirAll(dst0, 0755)
+	log.Println(dst0)
+	log.Printf("开始拷贝 %s %s", task.SrcPath, dst0)
+	src, _ := os.Open(task.SrcPath)
+	defer src.Close()
+	dst, _ := os.Create(dst0)
+	defer dst.Close()
+	utils.Copy(task.SrcPath, dst0, true)
+
 }

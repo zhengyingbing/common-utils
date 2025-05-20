@@ -6,8 +6,32 @@ import (
 	"github.com/zhengyingbing/common-utils/packaging/models"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 )
+
+func CopyPlugins(srcDirs []string, buildPath []string, progress models.ProgressCallback) error {
+	taskQueue := make(chan CopyTask, len(buildPath)*len(srcDirs))
+
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.NumCPU()*2; i++ {
+		wg.Add(1)
+		go copyWorker(taskQueue, &wg)
+	}
+	for _, channel := range buildPath {
+		for _, plugin := range srcDirs {
+			taskQueue <- CopyTask{
+				//ChannelId: channel,
+				SrcPath: plugin,
+				DstPath: channel,
+			}
+		}
+	}
+	close(taskQueue)
+	wg.Wait()
+	return nil
+}
 
 /**
  * rules：优先级，rules的值表示插件对应的模块优先级高
