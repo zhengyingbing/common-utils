@@ -51,7 +51,7 @@ func (ChannelLogger) LogInfo(data ...any) {
 	logStr := fmt.Sprintln(data)
 	writeLog(logStr)
 	//log.Println(data)
-	log.Println(append([]interface{}{"[INFO] - ", time.DateTime}, data...)...)
+	log.Println(append([]interface{}{"[INFO] - ", time.Now().Format("2006-01-02 15:04:05")}, data...)...)
 }
 
 func Init(channelId, logDir string) ChannelLogger {
@@ -62,15 +62,16 @@ func Init(channelId, logDir string) ChannelLogger {
 		file:   f,
 		Buffer: bf,
 	}
-	StartFlusher(3 * time.Second)
+	StartFlush(3 * time.Second)
 
 	return logger
 }
 
 func Write(data ...any) {
-	log.Println(append([]interface{}{"[INFO] - ", time.DateTime}, data...)...)
+	tm := time.Now().Format("2006-01-02 15:04:05")
+	log.Println(append([]interface{}{"[INFO] - ", tm}, data...)...)
 	logStr := fmt.Sprintln(data)
-	bf.WriteString(time.Now().Format("2006-01-02 15:04:05") + logStr + "\n")
+	bf.WriteString(tm + logStr + "\n")
 }
 
 func writeLog(msg string) {
@@ -82,7 +83,7 @@ func writeLog(msg string) {
 	}
 }
 
-func StartFlusher(val time.Duration) {
+func StartFlush(val time.Duration) {
 	go func() {
 		ticker := time.NewTicker(val)
 		for range ticker.C {
@@ -102,7 +103,7 @@ func flushToDisk() {
 }
 
 // 崩溃时刷盘
-func Shutdown() {
+func (logger ChannelLogger) Shutdown() {
 	flushToDisk()
 	logger.file.Sync() //系统级sync
 }
